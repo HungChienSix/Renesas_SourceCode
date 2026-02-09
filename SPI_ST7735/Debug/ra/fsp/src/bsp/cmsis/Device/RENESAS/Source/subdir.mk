@@ -16,14 +16,14 @@ OBJS += \
 ./ra/fsp/src/bsp/cmsis/Device/RENESAS/Source/system.o 
 
 SREC += \
-ST7735.srec 
+SPI_ST7735.srec 
 
 MAP += \
-ST7735.map 
+SPI_ST7735.map 
 
 
 # Each subdirectory must supply rules for building sources it contributes
 ra/fsp/src/bsp/cmsis/Device/RENESAS/Source/%.o: ../ra/fsp/src/bsp/cmsis/Device/RENESAS/Source/%.c
-	$(file > $@.in,-mcpu=cortex-m33 -mthumb -mfloat-abi=hard -mfpu=fpv5-sp-d16 -O2 -fmessage-length=0 -fsigned-char -ffunction-sections -fdata-sections -fno-strict-aliasing -Wunused -Wuninitialized -Wall -Wextra -Wmissing-declarations -Wconversion -Wpointer-arith -Wshadow -Wlogical-op -Waggregate-return -Wfloat-equal -g -D_RENESAS_RA_ -D_RA_CORE=CM33 -D_RA_ORDINAL=1 -I"D:/e2_Workspace/ST7735/ra_gen" -I"." -I"D:/e2_Workspace/ST7735/ra_cfg/fsp_cfg/bsp" -I"D:/e2_Workspace/ST7735/ra_cfg/fsp_cfg" -I"D:/e2_Workspace/ST7735/src" -I"D:/e2_Workspace/ST7735/ra/fsp/inc" -I"D:/e2_Workspace/ST7735/ra/fsp/inc/api" -I"D:/e2_Workspace/ST7735/ra/fsp/inc/instances" -I"D:/e2_Workspace/ST7735/ra/arm/CMSIS_6/CMSIS/Core/Include" -std=c99 -Wno-stringop-overflow -Wno-format-truncation --param=min-pagesize=0 -MMD -MP -MF"$(@:%.o=%.d)" -MT"$@" -c -o "$@" -x c "$<")
+	$(file > $@.in,-mcpu=cortex-m33 -mthumb -mfloat-abi=hard -mfpu=fpv5-sp-d16 -O2 -fmessage-length=0 -fsigned-char -ffunction-sections -fdata-sections -fno-strict-aliasing -Wunused -Wuninitialized -Wall -Wextra -Wmissing-declarations -Wconversion -Wpointer-arith -Wshadow -Wlogical-op -Waggregate-return -Wfloat-equal -g -D_RENESAS_RA_ -D_RA_CORE=CM33 -D_RA_ORDINAL=1 -I"D:/Git_Repo/Renesas_Repo/SPI_ST7735/ra_gen" -I"." -I"D:/Git_Repo/Renesas_Repo/SPI_ST7735/ra_cfg/fsp_cfg/bsp" -I"D:/Git_Repo/Renesas_Repo/SPI_ST7735/ra_cfg/fsp_cfg" -I"D:/Git_Repo/Renesas_Repo/SPI_ST7735/src" -I"D:/Git_Repo/Renesas_Repo/SPI_ST7735/ra/fsp/inc" -I"D:/Git_Repo/Renesas_Repo/SPI_ST7735/ra/fsp/inc/api" -I"D:/Git_Repo/Renesas_Repo/SPI_ST7735/ra/fsp/inc/instances" -I"D:/Git_Repo/Renesas_Repo/SPI_ST7735/ra/arm/CMSIS_6/CMSIS/Core/Include" -std=c99 -Wno-stringop-overflow -Wno-format-truncation --param=min-pagesize=0 -MMD -MP -MF"$(@:%.o=%.d)" -MT"$@" -c -o "$@" -x c "$<")
 	@echo Building file: $< && arm-none-eabi-gcc @"$@.in"
 

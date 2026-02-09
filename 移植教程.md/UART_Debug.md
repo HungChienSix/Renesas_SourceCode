@@ -1,6 +1,4 @@
-# SCI_UART介绍
-
-这篇文章主要讲解如何使用SCI模块的UART功能实现收发的重定向。
+# UART_Debug
 
 # 项目创建
 
@@ -58,8 +56,6 @@
  * uart_debug.c
  *
  */
-
-/* V1.0 UART_Debug */
 
 #include <UART_Debug/uart_debug.h>
 
@@ -155,8 +151,6 @@ int fputc(int ch, FILE *f)
  *
  */
 
-/* V1.0 UART_Debug */
-
 #ifndef UART_DEBUG_UART_DEBUG_H_
 #define UART_DEBUG_UART_DEBUG_H_
 
@@ -239,3 +233,7 @@ int _fstat(int fd, struct stat *st);
         // R_BSP_SoftwareDelay(1000, BSP_DELAY_UNITS_MILLISECONDS);
     }
 ```
+
+‍
+
+‍

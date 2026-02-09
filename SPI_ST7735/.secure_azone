@@ -3,7 +3,6 @@
     <rzone name="R7FA6M5BF2CBG.rzone"/>
     <partition>
         <peripheral name="PORT0.CM33" group="PORT">
-            <slot name="P000.CM33" secure="true"/>
             <slot name="P002.CM33" secure="true"/>
         </peripheral>
         <peripheral name="PORT1.CM33" group="PORT">
@@ -28,9 +27,9 @@
             <slot name="P803.CM33" secure="true"/>
             <slot name="P804.CM33" secure="true"/>
         </peripheral>
-        <peripheral name="SCI2.CM33" group="SCI" security="s"/>
-        <peripheral name="GPT0.CM33" group="GPT" security="s"/>
         <peripheral name="SCI3.CM33" group="SCI" security="s"/>
+        <peripheral name="GPT0.CM33" group="GPT" security="s"/>
+        <peripheral name="SCI2.CM33" group="SCI" security="s"/>
         <peripheral name="ICU.CM33">
             <slot name="IRQ0.CM33" secure="true"/>
             <slot name="IRQ1.CM33" secure="true"/>

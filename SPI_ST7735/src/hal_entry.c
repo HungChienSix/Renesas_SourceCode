@@ -1,6 +1,8 @@
 #include "hal_data.h"
 #include "stdio.h"
+#include "./UART_Debug/uart_debug.h"
 #include "./Screen/screen.h"
+#include "./TIM_Clock/tim_clock.h"
 
 #if (1 == BSP_MULTICORE_PROJECT) && BSP_TZ_SECURE_BUILD
 bsp_ipc_semaphore_handle_t g_core_start_semaphore =
@@ -9,13 +11,9 @@ bsp_ipc_semaphore_handle_t g_core_start_semaphore =
 };
 #endif
 
-uint32_t clock = 0x00;
-
 void LCD_Test();
 void LCD_Test(){
     char info[32] = {0};
-    uint32_t time_re;
-    uint32_t time_in;
 
     SCREEN_FillScreen(SCREEN_BLACK);
 
@@ -26,10 +24,7 @@ void LCD_Test(){
     SCREEN_RefreshScreen();
 
     // 获取刷新耗时并显示
-    time_re = SCREEN_GetRefreshTime();
-    time_in = SCREEN_GetRefreshIntervalTime();
-    sprintf(info, "T=%4lu,T=%4lu\n", time_re,time_in);
-    R_SCI_UART_Write(&g_uart0_ctrl, info, 32);
+    printf("T=%4lu,T=%4lu\n", SCREEN_GetRefreshTime(),SCREEN_GetRefreshIntervalTime());
 
     R_BSP_SoftwareDelay(1000U, BSP_DELAY_UNITS_MILLISECONDS);
 
@@ -42,10 +37,7 @@ void LCD_Test(){
     SCREEN_RefreshScreen();
 
     // 获取刷新耗时并显示
-    time_re = SCREEN_GetRefreshTime();
-    time_in = SCREEN_GetRefreshIntervalTime();
-    sprintf(info, "T=%4lu,T=%4lu\n", time_re,time_in);
-    R_SCI_UART_Write(&g_uart0_ctrl, info, 32);
+    printf("T=%4lu,T=%4lu\n", SCREEN_GetRefreshTime(),SCREEN_GetRefreshIntervalTime());
 
     R_BSP_SoftwareDelay(1000U, BSP_DELAY_UNITS_MILLISECONDS);
 }
@@ -57,24 +49,15 @@ void LCD_Test(){
 void hal_entry(void)
 {
     /* TODO: add your own code here */
-    // 301 --> LCD_RES
-    // 804 --> LCD_DC
-    // 803 --> LCD_CS
-    // 002 --> LCD_BLK
-    fsp_err_t status = FSP_SUCCESS;
-    // status = R_IOPORT_Open(&g_ioport_ctrl, &g_ioport.p_cfg);
-    status = R_SCI_SPI_Open(&g_spi0_ctrl, &g_spi0_cfg);
-    status = R_GPT_Open(&g_timer0_ctrl, &g_timer0_cfg);
-    status = R_GPT_Start(&g_timer0_ctrl);
-    status = R_SCI_UART_Open(&g_uart0_ctrl, &g_uart0_cfg);
+    R_IOPORT_Open(&g_ioport_ctrl, g_ioport.p_cfg);
 
-    // assert(FSP_SUCCESS == status);
-
+    TIM_Clock_Init();
+    UART_Debug_Init();
     SCREEN_Init();
 
-    R_SCI_UART_Write(&g_uart0_ctrl, "Initial OK\n", 11);
     while(1){
         LCD_Test();
+        // R_BSP_SoftwareDelay(1000, BSP_DELAY_UNITS_MILLISECONDS);
     }
 
     /* Wake up 2nd core if this is first core and we are inside a multicore project. */
@@ -120,12 +103,3 @@ BSP_CMSE_NONSECURE_ENTRY void template_nonsecure_callable ()
 FSP_CPP_FOOTER
 
 #endif
-
-void time0_callback(timer_callback_args_t *p_args){
-    if ( NULL != p_args)
-    {
-        if(p_args->event == TIMER_EVENT_CYCLE_END ){
-            clock++;
-        }
-    }
-}

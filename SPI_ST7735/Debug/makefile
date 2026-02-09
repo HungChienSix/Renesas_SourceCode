@@ -10,6 +10,8 @@ RM := rm -rf
 
 # All of the sources participating in the build are defined here
 -include sources.mk
+-include src/UART_Debug/subdir.mk
+-include src/TIM_Clock/subdir.mk
 -include src/Screen/subdir.mk
 -include src/subdir.mk
 -include ra_gen/subdir.mk
@@ -85,29 +87,29 @@ endif
 
 # Add inputs and outputs from these tool invocations to the build variables 
 SECONDARY_FLASH += \
-ST7735.srec \
+SPI_ST7735.srec \
 
 SECONDARY_SIZE += \
-ST7735.siz \
+SPI_ST7735.siz \
 
 
 # All Target
-all: ST7735.elf secondary-outputs
+all: SPI_ST7735.elf secondary-outputs
 
 # Tool invocations
-ST7735.elf: $(OBJS) $(USER_OBJS) $(LINKER_SCRIPT)
-	$(file > ST7735.elf.in,-mcpu=cortex-m33 -mthumb -mfloat-abi=hard -mfpu=fpv5-sp-d16 -O2 -fmessage-length=0 -fsigned-char -ffunction-sections -fdata-sections -fno-strict-aliasing -Wunused -Wuninitialized -Wall -Wextra -Wmissing-declarations -Wconversion -Wpointer-arith -Wshadow -Wlogical-op -Waggregate-return -Wfloat-equal -g -T "fsp.ld" -Xlinker --gc-sections -L "D:\\e2_Workspace\\ST7735/script" -Wl,-Map,"ST7735.map" --specs=nano.specs -o "ST7735.elf" -Wl,--start-group $(OBJS) $(USER_OBJS) $(LIBS) -Wl,--end-group)
-	@echo Building target: $@ && arm-none-eabi-gcc @"ST7735.elf.in"
-ST7735.srec: ST7735.elf
-	arm-none-eabi-objcopy -O srec "ST7735.elf"  "ST7735.srec"
-ST7735.siz: ST7735.elf
-	arm-none-eabi-size --format=berkeley "ST7735.elf"
+SPI_ST7735.elf: $(OBJS) $(USER_OBJS) $(LINKER_SCRIPT)
+	$(file > SPI_ST7735.elf.in,-mcpu=cortex-m33 -mthumb -mfloat-abi=hard -mfpu=fpv5-sp-d16 -O2 -fmessage-length=0 -fsigned-char -ffunction-sections -fdata-sections -fno-strict-aliasing -Wunused -Wuninitialized -Wall -Wextra -Wmissing-declarations -Wconversion -Wpointer-arith -Wshadow -Wlogical-op -Waggregate-return -Wfloat-equal -g -T "fsp.ld" -Xlinker --gc-sections -L "D:\\Git_Repo\\Renesas_Repo\\SPI_ST7735/script" -Wl,-Map,"SPI_ST7735.map" --specs=nano.specs -o "SPI_ST7735.elf" -Wl,--start-group $(OBJS) $(USER_OBJS) $(LIBS) -Wl,--end-group)
+	@echo Building target: $@ && arm-none-eabi-gcc @"SPI_ST7735.elf.in"
+SPI_ST7735.srec: SPI_ST7735.elf
+	arm-none-eabi-objcopy -O srec "SPI_ST7735.elf"  "SPI_ST7735.srec"
+SPI_ST7735.siz: SPI_ST7735.elf
+	arm-none-eabi-size --format=berkeley "SPI_ST7735.elf"
 # Other Targets
 clean:
 	-$(file > clean_file.tmp,  $(JMP_DEPS)  $(FSY_DEPS)  $(C_UPPER_DEPS)  $(SECONDARY_SIZE)  $(SRC_UPPER_DEPS)  $(P_UPPER_DEPS)  $(S_DEPS)  $(PP_UPPER_DEPS)  $(P_DEPS)  $(FSY_UPPER_DEPS)  $(C_DEPS)  $(SRC_DEPS)  $(JMP_UPPER_DEPS)  $(PP_DEPS)  $(SX_DEPS)  $(ASM_UPPER_DEPS)  $(SX_UPPER_DEPS)  $(OBJS)  $(SECONDARY_FLASH)  $(ASM_DEPS)  $(SREC)  $(S_UPPER_DEPS)  $(MAP) )
 	-@ xargs -P 2 -s 32000 -t -a clean_file.tmp $(RM)
 	-@$(RM) clean_file.tmp
-	-$(RM)  ST7735.elf
+	-$(RM)  SPI_ST7735.elf
 	-@echo ' '
 
 secondary-outputs: $(SECONDARY_FLASH) $(SECONDARY_SIZE)

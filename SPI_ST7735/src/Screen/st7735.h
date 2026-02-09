@@ -102,6 +102,7 @@ typedef struct {
 } struSCREEN_state_t;
 
 // 函数声明
+void SPI_ST7735_Init(void);
 void SCREEN_Init(void);
 SCREEN_Pixel_t ReadPixel(int16_t x, int16_t y);
 void DrawPixel(int16_t x, int16_t y, SCREEN_Pixel_t Pixel_Set);

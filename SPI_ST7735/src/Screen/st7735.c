@@ -1,6 +1,5 @@
 #include "st7735.h"
 #include <string.h>
-
 #include "r_spi_api.h"
 
 // 帧缓冲区：128x128 像素, 16位色 (RGB565), 2 字节/像素
@@ -10,24 +9,27 @@ static uint16_t display_ram[ST7735_HEIGHT][ST7735_WIDTH] = {0x0000};
     static uint16_t page_checksum[ST7735_HEIGHT] = {0x00}; // 页校验码数组
 #endif
 
+void SCREEN_RefreshScreen_Force(void) ;
+
 // 辅助时钟
 extern uint32_t clock;
 
-// 瑞萨移植 - I2C发送相关变量
-uint32_t    timeout_us           = 100000; // IIC发送的timeout
-spi_event_t spi_event = SPI_EVENT_TRANSFER_ABORTED;
+// SPI 发送相关变量
+uint32_t timeout_us           = 100000;
+volatile bool spi_transfer_complete_flag = false;
 
 void sci_spi_callback(spi_callback_args_t *p_args){
-    spi_event = SPI_EVENT_TRANSFER_ABORTED;
-    if (NULL != p_args)
+    switch (p_args->event)
     {
-        /* capture callback event for validating the i2c transfer event*/
-        spi_event = p_args->event;
+        case SPI_EVENT_TRANSFER_COMPLETE:
+        {
+            spi_transfer_complete_flag  = true;
+            break;
+        }
+        default:
+            break;
     }
 }
-		
-// 脏矩阵,高位在前,如果位是1代表需要刷新
-// uint8_t frame_bit[ST7735_HEIGHT][ST7735_WIDTH / 8] = {0x00};
 
 /* 屏幕状态全局变量定义 */
 struSCREEN_state_t screen_state = {0};
@@ -41,77 +43,50 @@ void ST7735_Reset(void){
 
 void ST7735_WriteCmd(uint8_t cmd){
     R_IOPORT_PinWrite(&g_ioport_ctrl, BSP_IO_PORT_08_PIN_04, BSP_IO_LEVEL_LOW);
-	//HAL_GPIO_WritePin(ST7735_DC_GPIO_Port, ST7735_DC_Pin, GPIO_PIN_RESET);
     R_IOPORT_PinWrite(&g_ioport_ctrl, BSP_IO_PORT_08_PIN_03, BSP_IO_LEVEL_LOW);
-	//HAL_GPIO_WritePin(ST7735_CS_GPIO_Port, ST7735_CS_Pin, GPIO_PIN_RESET);
-    spi_event = SPI_EVENT_TRANSFER_ABORTED;
-    fsp_err_t err = R_SCI_SPI_Write(&g_spi0_ctrl, &cmd, 1, SPI_BIT_WIDTH_8_BITS);
-    assert(FSP_SUCCESS == err);
 
-    while ((SPI_EVENT_TRANSFER_COMPLETE != spi_event) && timeout_us>0){
+    R_SCI_SPI_Write(&g_spi0_ctrl, &cmd, 1, SPI_BIT_WIDTH_8_BITS);
+
+    while ((true != spi_transfer_complete_flag) && timeout_us>0){
         R_BSP_SoftwareDelay(1U, BSP_DELAY_UNITS_MICROSECONDS);
         timeout_us--;
     }
-
-    if (SPI_EVENT_TRANSFER_ABORTED == spi_event)
-    {
-        __BKPT(0);
-    }
+    spi_transfer_complete_flag = false;
     timeout_us           = 100000;
 
-	//HAL_SPI_Transmit(&ST7735_SPI, &cmd, 1, ST7735_SPI_CMD_TIMEOUT);
 	R_IOPORT_PinWrite(&g_ioport_ctrl, BSP_IO_PORT_08_PIN_03, BSP_IO_LEVEL_HIGH);
-	//HAL_GPIO_WritePin(ST7735_CS_GPIO_Port, ST7735_CS_Pin, GPIO_PIN_SET);
 }
 
 void ST7735_WriteByte(uint8_t data){
     R_IOPORT_PinWrite(&g_ioport_ctrl, BSP_IO_PORT_08_PIN_04, BSP_IO_LEVEL_HIGH);
-	//HAL_GPIO_WritePin(ST7735_DC_GPIO_Port, ST7735_DC_Pin, GPIO_PIN_SET);
     R_IOPORT_PinWrite(&g_ioport_ctrl, BSP_IO_PORT_08_PIN_03, BSP_IO_LEVEL_LOW);
-	//HAL_GPIO_WritePin(ST7735_CS_GPIO_Port, ST7735_CS_Pin, GPIO_PIN_RESET);
-    spi_event = SPI_EVENT_TRANSFER_ABORTED;
-    fsp_err_t err = R_SCI_SPI_Write(&g_spi0_ctrl, &data, 1, SPI_BIT_WIDTH_8_BITS);
-    assert(FSP_SUCCESS == err);
 
-    while ((SPI_EVENT_TRANSFER_COMPLETE != spi_event) && timeout_us>0){
+    R_SCI_SPI_Write(&g_spi0_ctrl, &data, 1, SPI_BIT_WIDTH_8_BITS);
+
+    while ((true != spi_transfer_complete_flag) && timeout_us>0){
         R_BSP_SoftwareDelay(1U, BSP_DELAY_UNITS_MICROSECONDS);
         timeout_us--;
     }
-
-    if (SPI_EVENT_TRANSFER_ABORTED == spi_event)
-    {
-        __BKPT(0);
-    }
+    spi_transfer_complete_flag = false;
     timeout_us           = 100000;
 
-	//HAL_SPI_Transmit(&ST7735_SPI, &data, 1, ST7735_SPI_DATA_TIMEOUT);
     R_IOPORT_PinWrite(&g_ioport_ctrl, BSP_IO_PORT_08_PIN_03, BSP_IO_LEVEL_HIGH);
-	//HAL_GPIO_WritePin(ST7735_CS_GPIO_Port, ST7735_CS_Pin, GPIO_PIN_SET);
 }
 
 void ST7735_WriteData(uint8_t *data, size_t data_size){
     R_IOPORT_PinWrite(&g_ioport_ctrl, BSP_IO_PORT_08_PIN_04, BSP_IO_LEVEL_HIGH);
-	//HAL_GPIO_WritePin(ST7735_DC_GPIO_Port, ST7735_DC_Pin, GPIO_PIN_SET);
     R_IOPORT_PinWrite(&g_ioport_ctrl, BSP_IO_PORT_08_PIN_03, BSP_IO_LEVEL_LOW);
-	//HAL_GPIO_WritePin(ST7735_CS_GPIO_Port, ST7735_CS_Pin, GPIO_PIN_RESET);
-    spi_event = SPI_EVENT_TRANSFER_ABORTED;
-    fsp_err_t err = R_SCI_SPI_Write(&g_spi0_ctrl, data, data_size, SPI_BIT_WIDTH_8_BITS);
-    assert(FSP_SUCCESS == err);
 
-    while ((SPI_EVENT_TRANSFER_COMPLETE != spi_event) && timeout_us>0){
+    R_SCI_SPI_Write(&g_spi0_ctrl, data, data_size, SPI_BIT_WIDTH_8_BITS);
+
+    while ((true != spi_transfer_complete_flag) && timeout_us>0){
         R_BSP_SoftwareDelay(1U, BSP_DELAY_UNITS_MICROSECONDS);
         timeout_us--;
     }
-
-    if (SPI_EVENT_TRANSFER_ABORTED == spi_event)
-    {
-        __BKPT(0);
-    }
+    spi_transfer_complete_flag = false;
     timeout_us           = 100000;
 
-	//HAL_SPI_Transmit(&ST7735_SPI, data, data_size, ST7735_SPI_DATA_TIMEOUT);
 	R_IOPORT_PinWrite(&g_ioport_ctrl, BSP_IO_PORT_08_PIN_03, BSP_IO_LEVEL_HIGH);
-	//HAL_GPIO_WritePin(ST7735_CS_GPIO_Port, ST7735_CS_Pin, GPIO_PIN_SET);
 }
 
 /**
@@ -142,10 +117,23 @@ void ST7735_SetRotation(uint8_t rotation){
 }
 
 /**
-  * @brief 初始化
+  * @brief SPI驱动初始化
+  * @note
+  */
+void SPI_ST7735_Init(){
+    fsp_err_t err = FSP_SUCCESS;
+
+    err = R_SCI_SPI_Open(&g_spi0_ctrl, &g_spi0_cfg);
+    assert(FSP_SUCCESS == err);
+}
+
+/**
+  * @brief 屏幕初始化
   * @note  
   */
 void SCREEN_Init(void) {
+    SPI_ST7735_Init();
+
 	ST7735_Reset();
 	ST7735_WriteCmd(ST7735_SLPOUT);
 	R_BSP_SoftwareDelay(100U, BSP_DELAY_UNITS_MILLISECONDS);
@@ -405,8 +393,8 @@ void SCREEN_RefreshScreen_Force(void) {
     for (uint16_t h = 0; h < ST7735_HEIGHT; h++) {
         // 准备当前行数据
         for (uint16_t w = 0; w < ST7735_WIDTH; w++) {
-            buff[w * 2] = display_ram[h][w] >> 8;
-            buff[w * 2 + 1] = display_ram[h][w] & 0xFF;
+            buff[w * 2] = (uint8_t)display_ram[h][w] >> 8;
+            buff[w * 2 + 1] = (uint8_t)display_ram[h][w] & 0xFF;
         }
         
         // 发送当前行数据
@@ -454,8 +442,8 @@ void SCREEN_RefreshScreen(void) {
 
             // 准备行数据
             for (uint16_t w = 0; w < ST7735_WIDTH; w++) {
-                buff[w * 2] = display_ram[h][w] >> 8;
-                buff[w * 2 + 1] = display_ram[h][w] & 0xFF;
+                buff[w * 2] = (uint8_t)(display_ram[h][w] >> 8);
+                buff[w * 2 + 1] = (uint8_t)display_ram[h][w] & 0xFF;
             }
 
             // 发送数据
