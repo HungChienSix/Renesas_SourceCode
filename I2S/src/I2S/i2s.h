@@ -1,11 +1,7 @@
-#ifndef __BSP_SDCARD_H
-#define __BSP_SDCARD_H
+#ifndef I2S_H
+#define I2S_H
 #include "hal_data.h"
 
-void SDCard_Init(void);
-void SDCard_DeInit(void);
-
-void SDCard_Test(void);
-
+void I2S_Init(void);
 
 #endif
