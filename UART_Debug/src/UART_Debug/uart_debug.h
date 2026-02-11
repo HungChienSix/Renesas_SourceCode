@@ -1,7 +1,7 @@
 /* V1.0 UART_Debug */
 
-#ifndef UART_DEBUG_UART_DEBUG_H_
-#define UART_DEBUG_UART_DEBUG_H_
+#ifndef UART_DEBUG_H
+#define UART_DEBUG_H
 
 #include "hal_data.h"
 #include <sys/stat.h>

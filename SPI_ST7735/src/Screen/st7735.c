@@ -15,7 +15,7 @@ void SCREEN_RefreshScreen_Force(void) ;
 extern uint32_t clock;
 
 // SPI 发送相关变量
-uint32_t timeout_us           = 100000;
+uint32_t timeout_us = 100000;
 volatile bool spi_transfer_complete_flag = false;
 
 void sci_spi_callback(spi_callback_args_t *p_args){
