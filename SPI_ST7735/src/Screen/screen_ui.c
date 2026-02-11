@@ -1,6 +1,8 @@
 #include "screen_ui.h"
 #include <string.h>
 
+struINPUT_t struINPUT={0};
+
 SCREEN_Event_t SCREEN_DrawButton(struUI_Button_t *button, SCREEN_Pixel_t Pixel_Set, SCREEN_Mode_t type){
     // 参数校验
     if(button == NULL){

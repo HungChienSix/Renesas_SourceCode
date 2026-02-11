@@ -1,6 +1,10 @@
 /* V1.0 UART_Debug */
 
 #include <UART_Debug/uart_debug.h>
+#include <stdio.h>
+#include "./Screen/screen_ui.h"
+
+extern struINPUT_t struINPUT;
 
 /* 调试串口初始化函数 */
 void UART_Debug_Init(void)
@@ -32,14 +36,30 @@ void UART_Debug_Callback (uart_callback_args_t * p_args)
         }
         case UART_EVENT_RX_CHAR:
         {
+            char ch = (char)p_args->data;
+
             /* 回显 */
-            R_SCI_UART_Write(&g_uart0_ctrl, (uint8_t *)&(p_args->data), 1);
+//            R_SCI_UART_Write(&g_uart0_ctrl, (uint8_t *)&ch, 1);
+
+            /* 处理接收字符 */
+            if (ch == 'A' ) {
+                struINPUT.id = 1;
+                struINPUT.type = 1;
+                struINPUT.value = 1;
+            }
+            else if (ch == 'B' ) {
+                struINPUT.id = 2;
+                struINPUT.type = 1;
+                struINPUT.value = 1;
+            }
+
             break;
         }
         default:
             break;
     }
 }
+
 
 
 #if defined __GNUC__ && !defined __clang__
