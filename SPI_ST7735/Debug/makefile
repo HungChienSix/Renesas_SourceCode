@@ -13,6 +13,7 @@ RM := rm -rf
 -include src/UART_Debug/subdir.mk
 -include src/TIM_Clock/subdir.mk
 -include src/Screen/subdir.mk
+-include src/KEY/subdir.mk
 -include src/subdir.mk
 -include ra_gen/subdir.mk
 -include ra/fsp/src/r_sci_uart/subdir.mk

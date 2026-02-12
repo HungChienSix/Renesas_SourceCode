@@ -1,8 +1,9 @@
 #include "user_screen.h"
 #include <stdio.h>
 #include "string.h"
+#include "../KEY/key.h"
 
-extern struINPUT_t struINPUT;
+// extern struINPUT_t struINPUT;
 
 // 当前页面状态: 0=欢迎页, 1=页面A, 2=页面B
 static uint8_t current_page = 0;
@@ -82,41 +83,44 @@ void Page2_ButtonB(void)
  * @brief 根据输入切换页面
  * @param input 输入结构体指针
  */
-void Page_Switch(struINPUT_t *input)
+// void Page_Switch(struINPUT_t *input)
+void Page_Switch(void)
 {
-    if (input == NULL || input->type != 1) {  // type=1 是按键
+    Key_Event_t key_event = Key_GetEvent(KEY_1);
+    if (key_event == KEY_Event_NULL ) {  // type=1 是按键
         return;
     }
 
     // 检测按键按下 (value=1)
-    if (input->value == 1) {
+    if (key_event) {
         switch (current_page) {
             case 0:  // 欢迎页
-                if (input->id == 1) {
+                if (key_event == KEY_Event_ShortPress) {
                     current_page = 1;
                     Page1_ButtonA();
-                } else if (input->id == 2) {
+                } else if (key_event == KEY_Event_LongPress) {
                     current_page = 2;
                     Page2_ButtonB();
                 }
                 break;
 
             case 1:  // Page1
-                if (input->id == 2) {  // 按B返回欢迎页
+                if (key_event == KEY_Event_LongPress) {  // 按B返回欢迎页
                     current_page = 0;
                     Page0_Welcome();
                 }
                 break;
 
             case 2:  // Page2
-                if (input->id == 1) {  // 按A返回欢迎页
+                if (key_event == KEY_Event_ShortPress) {  // 按A返回欢迎页
                     current_page = 0;
                     Page0_Welcome();
                 }
                 break;
         }
 
-        memset(&struINPUT, 0, sizeof(struINPUT));
+        Key_ClearEvent(KEY_1);
+        // memset(&struINPUT, 0, sizeof(struINPUT));
     }
 }
 

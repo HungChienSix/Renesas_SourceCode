@@ -62,6 +62,7 @@ ra/fsp/src/r_ioport \
 ra/fsp/src/r_sci_spi \
 ra/fsp/src/r_sci_uart \
 ra_gen \
+src/KEY \
 src/Screen \
 src/TIM_Clock \
 src/UART_Debug \

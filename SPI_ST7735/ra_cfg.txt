@@ -150,7 +150,7 @@ FSP Configuration
       AVCCUSBHS H13 USB_HS0_AVCC_USBHS - - - - - - - - IO "Read only" - 
       AVSS0 N9 ANALOG0_AVSS0 - - - - - - - - IO "Read only" - 
       AVSSUSBHS G14 USB_HS0_AVSS_USBHS - - - - - - - - IO "Read only" - 
-      P000 R12 - - - - Disabled - - "ADC0: AN000; ADC1: AN100; ICU0: IRQ06" - None - - 
+      P000 R12 GPIO - - None "Input mode" - None "ADC0: AN000; ADC1: AN100; ICU0: IRQ06" - IO - - 
       P001 N11 - - - - Disabled - - "ADC0: AN001; ADC1: AN101; ICU0: IRQ07" - None - - 
       P002 R11 GPIO - - None "Output mode (Initial Low)" CMOS - "ADC0: AN002; ADC1: AN102; ICU0: IRQ08" - IO - - 
       P003 M5 - - - - Disabled - - "ADC0: AN003" - None - - 

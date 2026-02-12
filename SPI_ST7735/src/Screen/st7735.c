@@ -12,7 +12,7 @@ static uint16_t display_ram[ST7735_HEIGHT][ST7735_WIDTH] = {0x0000};
 void SCREEN_RefreshScreen_Force(void) ;
 
 // 辅助时钟
-extern uint32_t clock;
+extern uint32_t g_sys_tick;
 
 // SPI 发送相关变量
 uint32_t timeout_us = 100000;
@@ -415,14 +415,14 @@ void SCREEN_RefreshScreen(void) {
 		uint32_t current_end_time;              // 本次刷新结束时间
 
 		// 记录本次刷新开始时间
-		current_start_time = clock;
+		current_start_time = g_sys_tick;
 
 		// 计算刷新间隔（上次刷新结束到本次刷新开始）
 		if (!first_call) {
 			if (current_start_time >= last_end_time) {
 				screen_state.refresh_interval_ms = current_start_time - last_end_time;
 			} else {
-				// clock溢出情况
+				// g_sys_tick溢出情况
 				screen_state.refresh_interval_ms = current_start_time + (0xFFFFFFFF - last_end_time);
 			}
 		} else {
@@ -458,7 +458,7 @@ void SCREEN_RefreshScreen(void) {
 #endif
 
 		// 记录本次刷新结束时间
-		current_end_time = clock;
+		current_end_time = g_sys_tick;
 
 		// 计算刷新耗时（本次刷新结束 - 本次刷新开始）
 		if (current_end_time >= current_start_time) {

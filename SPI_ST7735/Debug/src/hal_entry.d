@@ -68,7 +68,7 @@ src/hal_entry.o: ../src/hal_entry.c \
  ../src/./Screen/st7735.h ../src/./Screen/fonts.h \
  ../src/./Screen/screen_ui.h ../src/./Screen/screen.h \
  ../src/./Screen/user_screen.h ../src/./Screen/screen_ui.h \
- ../src/./TIM_Clock/tim_clock.h
+ ../src/./TIM_Clock/tim_clock.h ../src/./KEY/key.h
 D:/Git_Repo/Renesas_Repo/SPI_ST7735/ra_gen/hal_data.h:
 D:/Git_Repo/Renesas_Repo/SPI_ST7735/ra/fsp/inc/api/bsp_api.h:
 D:/Git_Repo/Renesas_Repo/SPI_ST7735/ra/fsp/inc/api/fsp_common_api.h:
@@ -143,3 +143,4 @@ D:/Git_Repo/Renesas_Repo/SPI_ST7735/ra_cfg/fsp_cfg/r_sci_uart_cfg.h:
 ../src/./Screen/user_screen.h:
 ../src/./Screen/screen_ui.h:
 ../src/./TIM_Clock/tim_clock.h:
+../src/./KEY/key.h:
