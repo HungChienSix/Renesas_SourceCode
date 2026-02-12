@@ -1,7 +1,55 @@
 #include "screen_ui.h"
 #include <string.h>
+#include "../KEY/key.h"
 
-// struINPUT_t struINPUT={0};
+/**
+ * @brief 获取输入事件，将按键状态转换为struINPUT格式
+ * @param input 指向struINPUT数组的指针，用于存储输入数据
+ * @note  从小到大遍历所有按键，找到第一个被按下的按键存入input[0]
+ *        input[1]保留用于存放摇杆数据
+ */
+void Screen_GetInput(struINPUT_t *input){
+    // 如果input数组内容不为空直接return
+    if(input[0].value != 0){
+        return;
+    }
+
+    // 初始化input[0]为无按键按下状态
+    input[0].type = INPUT_TYPE_KEY;
+    input[0].id = 0;
+    input[0].value = 0;  // 0表示无按键按下
+
+    // 从小到大遍历所有按键，找到第一个被按下的按键
+    for(uint8_t i = 0; i < KEY_MAX; i++){
+        // 获取按键事件 (KEY_Event_NULL=0, KEY_Event_ShortPress=1, KEY_Event_LongPress=2)
+        Key_Event_t key_event = Key_GetEvent((Key_ID_t)i);
+
+        if(key_event != KEY_Event_NULL){
+            // 找到第一个有事件的按键，存入input[0]
+            input[0].type = INPUT_TYPE_KEY;
+            input[0].id = i;                // 按键ID作为标记值
+            input[0].value = key_event;     // 事件类型 (1短按, 2长按)
+            break;  // 找到后退出循环
+        }
+    }
+    for(uint8_t i = 0; i < KEY_MAX; i++){
+        Key_ClearEvent((Key_ID_t)i);  // 清除按键事件，避免重复读取
+    }
+
+    // input[1]保留用于存放摇杆数据，暂不实现
+}
+
+/**
+ * @brief 清除输入事件
+ * @param input 指向struINPUT数组的指针，用于清空输入数据
+ * @note  清除所有按键的事件，并清空input数组内容
+ */
+void Screen_ClearInput(struINPUT_t *input){
+    // 清空input数组内容
+    if(input != NULL){
+        memset(input, 0, sizeof(struINPUT_t) * 2);  // 清空2个元素
+    }
+}
 
 SCREEN_Event_t SCREEN_DrawButton(struUI_Button_t *button, SCREEN_Pixel_t Pixel_Set, SCREEN_Mode_t type){
     // 参数校验

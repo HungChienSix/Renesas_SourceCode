@@ -1,6 +1,7 @@
 /* V1.0 Screen */
 /* V1.1 Screen : 添加屏幕的输入，实现外界输入控制屏幕 */
 /* V1.2 Screen : 实现按键控制 */
+/* V1.3 Screen : 优化代码结构，为后续加入摇杆留出接口 */
 
 #ifndef __SCREEN_H
 #define __SCREEN_H

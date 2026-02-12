@@ -65,7 +65,7 @@ void Key_Init(void);
 
 /**
  * @brief 按键扫描函数
- * @note  需要在主循环中周期调用，推荐20ms调用一次
+ * @note  需要在主循环中周期调用
  */
 void Key_Scan(void);
 
@@ -95,9 +95,5 @@ bool Key_GetState(Key_ID_t key_id);
  * @return true-按下, false-释放
  */
 bool Key_IsPressed(Key_ID_t key_id);
-
-#ifdef __cplusplus
-}
-#endif
 
 #endif /* KEY_KEY_H_ */
