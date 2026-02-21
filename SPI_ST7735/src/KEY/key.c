@@ -1,11 +1,8 @@
 /* V1.0 KEY */
+/* V1.1 KEY: 优化代码结构 */
 
 #include "key.h"
-#include "hal_data.h"
-#include "../TIM_Clock/tim_clock.h"
-
-/* ==================== 外部函数声明 ==================== */
-extern fsp_err_t R_IOPORT_Open(ioport_ctrl_t *const p_ctrl, const ioport_cfg_t *const p_cfg);
+#include "./TIM_Clock/tim_clock.h"
 
 /* ==================== 按键配置表 ==================== */
 static const Key_t key_config[KEY_MAX] =
@@ -16,25 +13,10 @@ static const Key_t key_config[KEY_MAX] =
 /* ==================== 按键运行时数据 ==================== */
 static Key_t key_data[KEY_MAX];
 
-/* ==================== 获取当前系统时间(ms) ==================== */
-static uint32_t Key_GetTick(void)
-{
-    /* 使用TIM_Clock的g_sys_tick变量，该变量每1ms递增一次 */
-    return g_sys_tick;
-}
-
-/* ==================== 获取按键引脚电平 ==================== */
-static bsp_io_level_t Key_GetPinLevel(bsp_io_port_pin_t pin)
-{
-    bsp_io_level_t level;
-    R_IOPORT_PinRead(&g_ioport_ctrl, pin, &level);
-    return level;
-}
-
 /* ==================== 按键初始化 ==================== */
 void Key_Init(void)
 {
-    /* 复制配置到运行时数据 */
+    /* 初始化结构体 */
     for (uint8_t i = 0; i < KEY_MAX; i++)
     {
         key_data[i] = key_config[i];
@@ -45,29 +27,34 @@ void Key_Init(void)
     }
 }
 
+/* ==================== 检测按键是否按下 ==================== */
+bool Key_IsPressed(Key_ID_t key_id)
+{
+    if (key_id >= KEY_MAX)
+    {
+        return false;
+    }
+    bsp_io_level_t pin_level = BSP_IO_LEVEL_LOW;
+    R_IOPORT_PinRead(&g_ioport_ctrl, key_data[key_id].pin, &pin_level);
+    return (pin_level == KEY_PRESS_LEVEL);
+}
+
 /* ==================== 按键扫描函数 ==================== */
 void Key_Scan(void)
 {
-    if(Key_GetEvent(KEY_1) != KEY_Event_NULL)
-    {
-        return;
+    // 从小到大遍历所有按键，看是否所有按键的状态都被清理了
+    for(uint8_t i = 0; i < KEY_MAX; i++){
+        if(Key_GetEvent(i) != KEY_Event_NULL)
+        {
+            return;
+        }
     }
-    uint32_t current_tick = Key_GetTick();
+
+    uint32_t current_tick = TIM_Clock_GetTime();
 
     for (uint8_t i = 0; i < KEY_MAX; i++)
     {
-        /* 读取按键当前电平 */
-        bsp_io_level_t pin_level = Key_GetPinLevel(key_data[i].pin);
-
-        /* 根据电平判断按键状态 */
-        if (pin_level == KEY_PRESS_LEVEL)
-        {
-            key_data[i].current_state = true;   // 按下
-        }
-        else
-        {
-            key_data[i].current_state = false;  // 释放
-        }
+        key_data[i].current_state = Key_IsPressed(i);
 
         /* 状态机处理 */
         switch (key_data[i].state)
@@ -165,23 +152,13 @@ void Key_ClearEvent(Key_ID_t key_id)
     }
 }
 
-/* ==================== 获取按键状态 ==================== */
-bool Key_GetState(Key_ID_t key_id)
+/* ==================== 获取按键结构体 ==================== */
+Key_t Key_GetInfo(Key_ID_t key_id)
 {
     if (key_id >= KEY_MAX)
     {
-        return false;
+        Key_t empty = {0};
+        return empty;
     }
-    return key_data[key_id].current_state;
-}
-
-/* ==================== 检测按键是否按下（无消抖） ==================== */
-bool Key_IsPressed(Key_ID_t key_id)
-{
-    if (key_id >= KEY_MAX)
-    {
-        return false;
-    }
-    bsp_io_level_t pin_level = Key_GetPinLevel(key_data[key_id].pin);
-    return (pin_level == KEY_PRESS_LEVEL);
+    return key_data[key_id];
 }

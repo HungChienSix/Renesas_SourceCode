@@ -3,13 +3,9 @@
 #include "string.h"
 
 #include "./UART_Debug/uart_debug.h"
-#include "./Screen/screen.h"
-#include "./Screen/screen_ui.h"
 #include "./Screen/user_screen.h"
 #include "./TIM_Clock/tim_clock.h"
 #include "./KEY/key.h"
-
-//extern struINPUT_t struINPUT;
 
 #if (1 == BSP_MULTICORE_PROJECT) && BSP_TZ_SECURE_BUILD
 bsp_ipc_semaphore_handle_t g_core_start_semaphore =
@@ -34,24 +30,10 @@ void hal_entry(void)
 
     Key_Init(); 
 
-    while(1){
-        // 在主循环中检测按键事件
-//        Key_Event_t event = Key_GetEvent(KEY_1);
-//        if (event == KEY_Event_ShortPress)
-//        {
-//            // 短按处理
-//            printf("Key 1 Short Press Detected!\n");
-//            Key_ClearEvent(KEY_1);
-//        }
-//        else if (event == KEY_Event_LongPress)
-//        {
-//            // 长按处理
-//            printf("Key 1 Long Press Detected!\n");
-//            Key_ClearEvent(KEY_1);
-//        }
+    printf("[Main] Init OK!\r\n");
 
+    while(1){
         Page_Switch();
-        // LCD_Test();
         R_BSP_SoftwareDelay(10, BSP_DELAY_UNITS_MILLISECONDS);
     }
 

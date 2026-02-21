@@ -39,7 +39,7 @@ void UART_Debug_Callback (uart_callback_args_t * p_args)
             char ch = (char)p_args->data;
 
             /* 回显 */
-//            R_SCI_UART_Write(&g_uart0_ctrl, (uint8_t *)&ch, 1);
+            R_SCI_UART_Write(&g_uart0_ctrl, (uint8_t *)&ch, 1);
 
 //            /* 处理接收字符 */
 //            if (ch == 'A' ) {

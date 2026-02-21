@@ -4,6 +4,14 @@
 #include <stdint.h>
 #include "bsp_api.h"
 #include "common_data.h"
+#include "r_dtc.h"
+#include "r_transfer_api.h"
+#include "r_sci_spi.h"
+#include "r_spi_api.h"
+#include "r_gpt.h"
+#include "r_timer_api.h"
+#include "r_i2s_api.h"
+#include "r_ssi.h"
 #include "r_dmac.h"
 #include "r_transfer_api.h"
 #include "r_sdhi.h"
@@ -11,6 +19,65 @@
 #include "r_sci_uart.h"
 #include "r_uart_api.h"
 FSP_HEADER
+/* Transfer on DTC Instance. */
+extern const transfer_instance_t g_transfer3;
+
+/** Access the DTC instance using these structures when calling API functions directly (::p_api is not used). */
+extern dtc_instance_ctrl_t g_transfer3_ctrl;
+extern const transfer_cfg_t g_transfer3_cfg;
+/* Transfer on DTC Instance. */
+extern const transfer_instance_t g_transfer2;
+
+/** Access the DTC instance using these structures when calling API functions directly (::p_api is not used). */
+extern dtc_instance_ctrl_t g_transfer2_ctrl;
+extern const transfer_cfg_t g_transfer2_cfg;
+/** SPI on SCI Instance. */
+extern const spi_instance_t g_spi0;
+
+/** Access the SCI_SPI instance using these structures when calling API functions directly (::p_api is not used). */
+extern sci_spi_instance_ctrl_t g_spi0_ctrl;
+extern const spi_cfg_t g_spi0_cfg;
+
+/** Called by the driver when a transfer has completed or an error has occurred (Must be implemented by the user). */
+#ifndef sci_spi_callback
+void sci_spi_callback(spi_callback_args_t *p_args);
+#endif
+/** Timer on GPT Instance. */
+extern const timer_instance_t g_timer1;
+
+/** Access the GPT instance using these structures when calling API functions directly (::p_api is not used). */
+extern gpt_instance_ctrl_t g_timer1_ctrl;
+extern const timer_cfg_t g_timer1_cfg;
+
+#ifndef TIM_Clock_Callback
+void TIM_Clock_Callback(timer_callback_args_t *p_args);
+#endif
+/** Timer on GPT Instance. */
+extern const timer_instance_t g_timer0;
+
+/** Access the GPT instance using these structures when calling API functions directly (::p_api is not used). */
+extern gpt_instance_ctrl_t g_timer0_ctrl;
+extern const timer_cfg_t g_timer0_cfg;
+
+#ifndef NULL
+void NULL(timer_callback_args_t *p_args);
+#endif
+/* Transfer on DTC Instance. */
+extern const transfer_instance_t g_transfer1;
+
+/** Access the DTC instance using these structures when calling API functions directly (::p_api is not used). */
+extern dtc_instance_ctrl_t g_transfer1_ctrl;
+extern const transfer_cfg_t g_transfer1_cfg;
+/** SSI Instance. */
+extern const i2s_instance_t g_i2s0;
+
+/** Access the SSI instance using these structures when calling API functions directly (::p_api is not used). */
+extern ssi_instance_ctrl_t g_i2s0_ctrl;
+extern const i2s_cfg_t g_i2s0_cfg;
+
+#ifndef I2S_Callback
+void I2S_Callback(i2s_callback_args_t *p_args);
+#endif
 /* Transfer on DMAC Instance. */
 extern const transfer_instance_t g_transfer0;
 

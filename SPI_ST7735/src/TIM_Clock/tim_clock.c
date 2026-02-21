@@ -12,6 +12,10 @@ void TIM_Clock_Init(){
     R_GPT_Start(&g_timer0_ctrl);
 }
 
+uint32_t TIM_Clock_GetTime(void){
+    return g_sys_tick;
+}
+
 void TIM_Clock_Callback(timer_callback_args_t *p_args){
     if ( NULL != p_args)
     {

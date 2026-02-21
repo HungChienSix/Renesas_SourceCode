@@ -33,7 +33,7 @@ void UART_Debug_Callback (uart_callback_args_t * p_args)
         case UART_EVENT_RX_CHAR:
         {
             /* 回显 */
-            R_SCI_UART_Write(&g_uart0_ctrl, (uint8_t *)&(p_args->data), 1);
+            // R_SCI_UART_Write(&g_uart0_ctrl, (uint8_t *)&(p_args->data), 1);
             break;
         }
         default:
@@ -43,7 +43,7 @@ void UART_Debug_Callback (uart_callback_args_t * p_args)
 
 
 #if defined __GNUC__ && !defined __clang__
-int _write(int fd, char *pBuffer, int size); //防止编译警告
+int _write(int fd, char *pBuffer, int size); 
 int _read(int fd, char *pBuffer, int size);
 
 /* 重定向 printf 输出 */
@@ -66,7 +66,7 @@ int _read(int fd, char *pBuffer, int size)
     while (uart_receive_complete_flag == false);
     uart_receive_complete_flag = false;
 
-//    /* 回显 */
+    /* 回显 */
 //    R_SCI_UART_Write (&g_uart0_ctrl, (uint8_t*) pBuffer, (uint32_t) size);
 
     return size;

@@ -1,12 +1,10 @@
 /* V1.0 KEY */
+/* V1.1 KEY: 优化代码结构 */
 
 #ifndef KEY_KEY_H_
 #define KEY_KEY_H_
 
-#include <stdint.h>
-#include <stdbool.h>
 #include "bsp_api.h"
-#include "r_ioport.h"
 
 /* ==================== 按键状态电平定义 ==================== */
 #define KEY_PRESS_LEVEL   BSP_IO_LEVEL_LOW     // 按下时的电平
@@ -14,7 +12,7 @@
 
 /* ==================== 按键时间参数定义 ==================== */
 #define KEY_DEBOUNCE_TIME      20    // 消抖时间 (ms)
-#define KEY_LONG_PRESS_TIME    1000  // 长按判定时间 (ms)
+#define KEY_LONG_PRESS_TIME    800  // 长按判定时间 (ms)
 
 /* ==================== 按键枚举定义 ==================== */
 typedef enum
@@ -59,7 +57,7 @@ typedef struct
 
 /**
  * @brief 按键初始化
- * @note  初始化所有按键的GPIO为输入模式
+ * @note  初始化按键结构体
  */
 void Key_Init(void);
 
@@ -83,17 +81,10 @@ Key_Event_t Key_GetEvent(Key_ID_t key_id);
 void Key_ClearEvent(Key_ID_t key_id);
 
 /**
- * @brief 获取按键状态
+ * @brief 获取按键结构体信息
  * @param key_id 按键ID
- * @return 当前按键状态 (1=按下, 0=释放)
+ * @return 按键结构体
  */
-bool Key_GetState(Key_ID_t key_id);
-
-/**
- * @brief 检测按键是否按下（无消抖，直接读取）
- * @param key_id 按键ID
- * @return true-按下, false-释放
- */
-bool Key_IsPressed(Key_ID_t key_id);
+Key_t Key_GetInfo(Key_ID_t key_id);
 
 #endif /* KEY_KEY_H_ */

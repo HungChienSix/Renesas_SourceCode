@@ -64,10 +64,9 @@ src/hal_entry.o: ../src/hal_entry.c \
  D:/Git_Repo/Renesas_Repo/SPI_ST7735/ra/fsp/inc/instances/r_sci_uart.h \
  D:/Git_Repo/Renesas_Repo/SPI_ST7735/ra/fsp/inc/api/r_uart_api.h \
  D:/Git_Repo/Renesas_Repo/SPI_ST7735/ra_cfg/fsp_cfg/r_sci_uart_cfg.h \
- ../src/./UART_Debug/uart_debug.h ../src/./Screen/screen.h \
- ../src/./Screen/st7735.h ../src/./Screen/fonts.h \
+ ../src/./UART_Debug/uart_debug.h ../src/./Screen/user_screen.h \
  ../src/./Screen/screen_ui.h ../src/./Screen/screen.h \
- ../src/./Screen/user_screen.h ../src/./Screen/screen_ui.h \
+ ../src/./Screen/st7735.h ../src/./Screen/fonts.h \
  ../src/./TIM_Clock/tim_clock.h ../src/./KEY/key.h
 D:/Git_Repo/Renesas_Repo/SPI_ST7735/ra_gen/hal_data.h:
 D:/Git_Repo/Renesas_Repo/SPI_ST7735/ra/fsp/inc/api/bsp_api.h:
@@ -135,12 +134,10 @@ D:/Git_Repo/Renesas_Repo/SPI_ST7735/ra/fsp/inc/instances/r_sci_uart.h:
 D:/Git_Repo/Renesas_Repo/SPI_ST7735/ra/fsp/inc/api/r_uart_api.h:
 D:/Git_Repo/Renesas_Repo/SPI_ST7735/ra_cfg/fsp_cfg/r_sci_uart_cfg.h:
 ../src/./UART_Debug/uart_debug.h:
+../src/./Screen/user_screen.h:
+../src/./Screen/screen_ui.h:
 ../src/./Screen/screen.h:
 ../src/./Screen/st7735.h:
 ../src/./Screen/fonts.h:
-../src/./Screen/screen_ui.h:
-../src/./Screen/screen.h:
-../src/./Screen/user_screen.h:
-../src/./Screen/screen_ui.h:
 ../src/./TIM_Clock/tim_clock.h:
 ../src/./KEY/key.h:
