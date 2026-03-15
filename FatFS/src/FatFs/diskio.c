@@ -8,15 +8,15 @@
 /*-----------------------------------------------------------------------*/
 
 #include <SDHI_SDcard/sdhi_sdcard.h>
+#include "stdio.h"
 #include "ff.h"			/* Obtains integer types */
 #include "diskio.h"		/* Declarations of disk functions */
-#include "stdio.h"
-
-#define SD_INFO_Printf
 
 extern __IO uint32_t g_transfer_complete ;
-//extern __IO uint32_t g_card_erase_complete ;
+extern __IO uint32_t g_card_erase_complete ;
 //extern __IO bool g_card_inserted ;
+
+uint32_t timeout_ms = 1000;
 
 sdmmc_device_t my_sdmmc_device;
 
@@ -81,6 +81,7 @@ DSTATUS disk_initialize (
         SDCard_Init();
 
         /* 检查卡是否插入 */
+
 //        err = R_SDHI_StatusGet(&g_sdmmc0_ctrl, &status);
 //        assert(FSP_SUCCESS == err);
 //        if (!status.card_inserted)
@@ -95,19 +96,18 @@ DSTATUS disk_initialize (
 //        }
 
         /* 设备应在检测到VDD最小值后1ms内准备好接受第一个命令。参考SD物理层简化规范6.00版第6.4.1.1节"卡的通电时间"。 */
-        R_BSP_SoftwareDelay(10U, BSP_DELAY_UNITS_MILLISECONDS);
+        /* 增加延迟时间，确保SD卡完全初始化 */
+        R_BSP_SoftwareDelay(5U, BSP_DELAY_UNITS_MILLISECONDS);
         /* Initialize the SD card.  This should not be done until the card is plugged in for SD devices. */
         fsp_err_t err = R_SDHI_MediaInit(&g_sdmmc0_ctrl, &my_sdmmc_device);
+        printf("[FatFS] R_SDHI_MediaInit : %d\r\n", err);
         assert(FSP_SUCCESS == err);
 
-#ifdef SD_INFO_Printf
-        printf("[FatFS] FAtFS初始化成功 \r\n");
-        printf("[FatFS] SD卡信息：\r\n");
+        printf("[FatFS] SD卡: \r\n");
         printf("[FatFS] 时钟频率: %ld \r\n", (uint32_t)my_sdmmc_device.clock_rate);
         printf("[FatFS] 扇区大小: %ld 字节\r\n", (uint32_t)my_sdmmc_device.sector_size_bytes);
         printf("[FatFS] 扇区数量: %ld\r\n", (uint32_t)my_sdmmc_device.sector_count);
         printf("[FatFS] 容量: %lu MB\r\n", (uint32_t)((uint64_t)my_sdmmc_device.sector_count * (uint64_t)my_sdmmc_device.sector_size_bytes / 1024));
-#endif
 
         stat = RES_OK;
         return stat;
@@ -121,7 +121,6 @@ DSTATUS disk_initialize (
 /* Read Sector(s)                                                        */
 /*-----------------------------------------------------------------------*/
 
-uint32_t timeout_ms = 1000;
 DRESULT disk_read (
     BYTE pdrv,              /* Physical drive nmuber to identify the drive */
     BYTE * buff,             /* Data buffer to store read data */

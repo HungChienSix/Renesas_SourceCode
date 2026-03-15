@@ -4,12 +4,18 @@
 /* 辅助计时时钟,每1ms进行一次计数,用来测量屏幕刷新的耗时 */
 #include "tim_clock.h"
 #include <KEY/key.h>
+#include <FatFs/ff.h>
+#include "sys_info.h"
 
 uint32_t g_sys_tick = 0;  // 1ms系统计时时钟
+
+extern FIL file;       // 文件对象
 
 void TIM_Clock_Init(){
     R_GPT_Open(&g_timer1_ctrl, &g_timer1_cfg);
     R_GPT_Start(&g_timer1_ctrl);
+
+    printf("[TIM_CLOCK]TIM_CLOCK Start\r\n");
 }
 
 uint32_t TIM_Clock_GetTime(void){

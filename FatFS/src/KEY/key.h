@@ -29,6 +29,11 @@ typedef enum{
     KEY_Event_LongPress = 2     // 长按事件
 } Key_Event_t;
 
+typedef struct {
+    Key_ID_t id;              // 按键ID
+    Key_Event_t event;        // 当前事件
+} Input_Event_t;
+
 typedef enum{
     KEY_State_Idle = 0,         // 空闲状态
     KEY_State_Press,            // 按下状态（消抖中）
@@ -49,10 +54,10 @@ typedef struct{
     Key_Event_t         event;          // 按键事件
 } Key_t;
 
-
-void        Key_Scan(void);
-Key_Event_t Key_GetEvent(Key_ID_t key_id);
-void        Key_ClearEvent(Key_ID_t key_id);
-Key_t       Key_GetInfo(Key_ID_t key_id);
+void            Key_Scan(void);
+Key_Event_t     Key_GetEvent(Key_ID_t key_id);
+void            Key_ClearEvent(Key_ID_t key_id);
+void            Key_GetInput(Input_Event_t *input);
+void            Key_ClearInput(void);
 
 #endif /* KEY_KEY_H_ */

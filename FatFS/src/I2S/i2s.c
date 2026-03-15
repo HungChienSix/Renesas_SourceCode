@@ -6,7 +6,7 @@
 
 #define WAV_INFO_Printf                 // 打印调试信息
 
-#define I2S_BUFFER_SIZE         44100/2 // 缓冲区数组的大小，缓冲区是uint32_t类型
+#define I2S_BUFFER_SIZE         4410*2 // 缓冲区数组的大小，缓冲区是uint32_t类型
 #define I2S_MAX_AUDIO_FILES     32      // 最大音频文件数量
 
 // 全局变量
@@ -190,6 +190,19 @@ void I2S_WavReadAll(const char *path)
 
     printf("[I2S] Scan complete. Found %u WAV file(s), added %u to playlist\r\n",
            added_count, playlist_count);
+
+    // 测试：立即尝试打开第一个文件
+    if (playlist_head != NULL) {
+        printf("[I2S] Testing file access after scan...\r\n");
+        FIL test_file;
+        FRESULT test_res = f_open(&test_file, playlist_head->filename, FA_READ);
+        if (test_res != FR_OK) {
+            printf("[I2S] Test failed: %d\r\n", test_res);
+        } else {
+            printf("[I2S] Test passed!\r\n");
+            f_close(&test_file);
+        }
+    }
 }
 
 // 读取 WAV 文件并解析音频信息
@@ -380,17 +393,27 @@ void I2S_OpenWavFile(FIL *file, struAudio_t *audio)
     // 重置 I2S 传输完成标志
     i2s_trans_complete_flag = false;
 
-    // 打开文件
+    // 打印调试信息
+    printf("[I2S] Opening file: '%s' (len=%u)\r\n", audio->filename, (uint32_t)strlen(audio->filename));
+
+    // 尝试使用结构体中的路径
     res = f_open(file, audio->filename, FA_READ);
+    printf("[I2S] Using path: '%s'\r\n", audio->filename);
+
     if (res != FR_OK) {
-        printf("[I2S] Failed to open file: %s, error code: %d\r\n", audio->filename, res);
+        printf("[I2S] Failed to open file: %s, error code: %d (FR_NO_FILE=%d, FR_DISK_ERR=%d)\r\n",
+               audio->filename, res, FR_NO_FILE, FR_DISK_ERR);
+        audio->file_opened = 0;  // 标记文件未打开
         return;
     }
+
+    audio->file_opened = 1;  // 标记文件已打开
 
     // 定位到wav数据
     res = f_lseek(file, audio->data_offset);
     if (res != FR_OK) {
         printf("[I2S] Failed to seek to data offset: %d\r\n", res);
+        audio->file_opened = 0;
         f_close(file);
         return;
     }
@@ -399,21 +422,64 @@ void I2S_OpenWavFile(FIL *file, struAudio_t *audio)
     uint32_t total_seconds = audio->total_samples / audio->fmt.samplesPerSec;
     uint32_t minutes = total_seconds / 60;
     uint32_t seconds = total_seconds % 60;
-    printf("[I2S] Audio: %s\r\n", audio->name);
+    printf("[I2S] Audio: %s\r\n", audio->filename);
     printf("[I2S] Duration: %lu分%lu秒\r\n", minutes, seconds);
+    printf("[I2S] Audio metadata: samples=%lu, rate=%lu Hz, bytes_per_sample=%u\r\n",
+           audio->total_samples, audio->fmt.samplesPerSec, audio->bytes_per_sample);
+}
+
+void I2S_CloseWavFile(FIL *file, struAudio_t *audio){
+    FRESULT res;
+
+    // 检查文件是否已打开
+    if (audio->file_opened == 0)
+    {
+        printf("[I2S] File already closed\r\n");
+        return;
+    }
+
+    // 关闭文件
+    res = f_close(file);
+    if (res != FR_OK)
+    {
+        printf("[I2S] Failed to close file, error: %d\r\n", res);
+        return;
+    }
+
+    // 清除文件打开标志
+    audio->file_opened = 0;
+
+    // 重置播放状态
+    audio->play_status = 0;        // 重置为未播放状态
+    audio->current_sample = 0;     // 重置播放位置
+    audio->buffer_index = 0;       // 重置缓冲区索引
+
+    printf("[I2S] File closed: %s\r\n", audio->filename);
 }
 
 FRESULT I2S_ReadBuffer(FIL *file, struAudio_t *audio, uint32_t *buffer, uint32_t file_read_size, UINT *bytesRead){
     FRESULT res;       // 文件操作结果
 
-    if(audio->total_samples - audio->current_sample < I2S_BUFFER_SIZE * sizeof(uint32_t)/audio->bytes_per_sample){
-        file_read_size = (audio->total_samples - audio->current_sample) * audio->bytes_per_sample;
-    }
-    else{
-        file_read_size = I2S_BUFFER_SIZE * sizeof(uint32_t);
+    // 修正：计算剩余样本对应的字节数
+    uint32_t remaining_samples = audio->total_samples - audio->current_sample;
+
+    // 修正计算：缓冲区应该按字节计算，不是按uint32_t
+    if (remaining_samples < I2S_BUFFER_SIZE) {
+        file_read_size = remaining_samples * audio->bytes_per_sample;
+        // printf("[I2S] Last chunk: %u bytes (%u samples)\r\n", file_read_size, remaining_samples);
+    } else {
+        file_read_size = I2S_BUFFER_SIZE * audio->bytes_per_sample;
+        // printf("[I2S] Full chunk: %u bytes (%u samples)\r\n", file_read_size, I2S_BUFFER_SIZE);
     }
 
+    // printf("[I2S] Reading %u bytes from offset %lu\r\n", file_read_size, f_tell(file));
+
     res = f_read(file, buffer, file_read_size, bytesRead);
+    if (res != FR_OK || *bytesRead != file_read_size) {
+        // printf("[I2S] f_read failed: res=%d, requested=%u, actual=%u\r\n", res, file_read_size, *bytesRead);
+    } else {
+        // printf("[I2S] Read successful: %u bytes\r\n", *bytesRead);
+    }
 
     return res;
 }
@@ -425,18 +491,33 @@ WAVPlay_t I2S_PlayWavFile(FIL *file, struAudio_t *audio)
     static UINT buffer1_bytes = 0;  // 缓冲区1实际读取的字节数
     static UINT current_write_bytes = 0;  // 当前写入I2S的字节数
 
+    // 检查文件是否已打开
+    if (audio->file_opened == 0) {
+        printf("[I2S] File not opened, cannot play\r\n");
+        return WAV_ReadError;
+    }
+
+    // 检查文件是否已打开
+    if (audio->file_opened == 0) {
+        printf("[I2S] File not opened, cannot play\r\n");
+        return WAV_ReadError;
+    }
+
     // 计算缓冲区大小（根据当前音频参数）
     uint32_t file_read_size = I2S_BUFFER_SIZE * sizeof(uint32_t);
 
-    if(audio->play_status == 0)
+    if(audio->play_status == 3){
+        return WAV_Pause;
+    }
+    else if(audio->play_status == 0)
     {
-        res = I2S_ReadBuffer(file, audio, data_buffer[audio->buffer_index], file_read_size, &buffer0_bytes);
+        res = I2S_ReadBuffer(file, audio, data_buffer[audio->buffer_index], I2S_BUFFER_SIZE * audio->bytes_per_sample, &buffer0_bytes);
         if(res != FR_OK)
         {
             printf("[I2S] Failed to read audio data\r\n");
             return WAV_ReadError;
         }
-        res = I2S_ReadBuffer(file, audio, data_buffer[(audio->buffer_index+1)%2], file_read_size, &buffer1_bytes);
+        res = I2S_ReadBuffer(file, audio, data_buffer[(audio->buffer_index+1)%2], I2S_BUFFER_SIZE * audio->bytes_per_sample, &buffer1_bytes);
         if(res != FR_OK)
         {
             printf("[I2S] Failed to read audio data\r\n");
@@ -452,7 +533,7 @@ WAVPlay_t I2S_PlayWavFile(FIL *file, struAudio_t *audio)
     else {
         if(audio->total_samples <= audio->current_sample){
             audio->play_status = 2;
-            return WAV_FINISH;
+            return WAV_Finish;
         }
         else if(i2s_trans_complete_flag == true){
             // 播放另一个缓冲区
@@ -461,14 +542,23 @@ WAVPlay_t I2S_PlayWavFile(FIL *file, struAudio_t *audio)
             audio->current_sample += current_write_bytes / audio->bytes_per_sample;
 
             // 读取新数据到当前缓冲区
+            uint32_t new_buffer_size = (audio->total_samples - audio->current_sample < I2S_BUFFER_SIZE) ?
+                                       (audio->total_samples - audio->current_sample) * audio->bytes_per_sample :
+                                       I2S_BUFFER_SIZE * audio->bytes_per_sample;
             if (audio->buffer_index == 0) {
-                I2S_ReadBuffer(file, audio, data_buffer[0], file_read_size, &buffer0_bytes);
+                I2S_ReadBuffer(file, audio, data_buffer[0], new_buffer_size, &buffer0_bytes);
             } else {
-                I2S_ReadBuffer(file, audio, data_buffer[1], file_read_size, &buffer1_bytes);
+                I2S_ReadBuffer(file, audio, data_buffer[1], new_buffer_size, &buffer1_bytes);
             }
 
-            // 实时输出播放进度
-            printf("[I2S] Playing %lu / %lu\r\n", audio->current_sample, audio->total_samples);
+            // 实时输出播放进度（时间格式：几分几秒）
+            uint32_t current_seconds = audio->current_sample / audio->fmt.samplesPerSec;
+            uint32_t total_seconds = audio->total_samples / audio->fmt.samplesPerSec;
+            uint8_t current_min = current_seconds / 60;
+            uint8_t current_sec = current_seconds % 60;
+            uint8_t total_min = total_seconds / 60;
+            uint8_t total_sec = total_seconds % 60;
+            printf("[I2S] Playing %u:%02u / %u:%02u\r\n", current_min, current_sec, total_min, total_sec);
             audio->buffer_index = (audio->buffer_index+1)%2;
             i2s_trans_complete_flag = false;
         }

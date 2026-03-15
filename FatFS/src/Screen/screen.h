@@ -38,6 +38,9 @@ extern const struFont_UTF_t Font_UTF_16x12_YuMincho;
 
 // 单色图片
 extern const unsigned char gImage_apple[128];
+extern const unsigned char gImage_RGB_163music[2048];
+extern const unsigned char gImage_RGB_kugou[2048];
+extern const unsigned char gImage_RGB_QQmusic[2048];
 
 void SCREEN_FillScreen(SCREEN_Pixel_t Pixel_Set);
 SCREEN_Event_t SCREEN_DrawPixel(int16_t x0, int16_t y0, SCREEN_Pixel_t Pixel_Set, SCREEN_Mode_t type);
@@ -60,9 +63,13 @@ SCREEN_Event_t SCREEN_DrawVerLine(int16_t x, int16_t y0, int16_t y1, SCREEN_Pixe
 SCREEN_Event_t SCREEN_DrawUTFChar(int16_t x0, int16_t y0, const char *utf8_char, const struFont_UTF_t *hz_font, SCREEN_Pixel_t Pixel_Set, SCREEN_Mode_t type);
 SCREEN_Event_t SCREEN_DrawUTF8String(int16_t x0, int16_t y0, const char *utf8_str, const struFont_t *ascii_font, const struFont_UTF_t *hz_font, SCREEN_Pixel_t Pixel_Set, SCREEN_Mode_t type);
 SCREEN_Event_t SCREEN_DrawImage(int16_t x0, int16_t y0, uint16_t width, uint16_t height, const uint8_t *image, SCREEN_Pixel_t Pixel_Set, SCREEN_Mode_t type);
+SCREEN_Event_t SCREEN_DrawRGBImage(int16_t x0, int16_t y0, uint16_t width, uint16_t height,
+								const uint8_t *image, SCREEN_Mode_t type);
 
 // 辅助绘制函数
 SCREEN_Event_t SCREEN_DrawTriangle(int16_t x0, int16_t y0, uint8_t size, uint8_t direction,
                                   SCREEN_Pixel_t color, SCREEN_Mode_t type);
+SCREEN_Event_t SCREEN_DrawFillRect(int16_t x0, int16_t y0, int16_t width, int16_t height,
+                                   SCREEN_Pixel_t color, SCREEN_Mode_t type);
 
 #endif

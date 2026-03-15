@@ -52,7 +52,8 @@ typedef struct {
 
     // 播放状态
     uint8_t  buffer_index;      // 0=A缓冲区, 1=B缓冲区
-    uint8_t  play_status;       // 0=未播放, 1=播放中, 2=播放完成
+    uint8_t  play_status;       // 0=未播放, 1=播放中, 2=播放完成, 3=播放暂停
+    uint8_t  file_opened;       // 0=文件未打开, 1=文件已打开
 
     // 链表指针（用于播放列表）
     struct struAudio_t *prev;   // 上一首
@@ -61,7 +62,8 @@ typedef struct {
 
 typedef enum {
     WAV_OK = 0,                 // 播放成功
-    WAV_FINISH,                 // 播放结束
+    WAV_Finish,                 // 播放结束
+    WAV_Pause,                  // 播放暂停
     WAV_ReadError,              // 读取文件错误
 } WAVPlay_t;
 
@@ -82,6 +84,7 @@ struAudio_t*        I2S_GetAudioByName(const char *name);
 
 // 播放控制函数
 void                I2S_OpenWavFile(FIL *file, struAudio_t *audio);
+void                I2S_CloseWavFile(FIL *file, struAudio_t *audio);
 WAVPlay_t           I2S_PlayWavFile(FIL *file, struAudio_t *audio);
 
 #endif /* I2S_I2S_H_ */

@@ -574,18 +574,21 @@ SCREEN_Event_t SCREEN_DrawUTFChar(int16_t x0, int16_t y0, const char *utf8_char,
 	int i = 0;
 	while (1) {
 		// 检查是否到达表尾（UTF8_code全0表示结束）
-		if (table[i].UTF8_code[0] == 0 && table[i].UTF8_code[1] == 0) {
+		if (table[i].UTF8_code[0] == 0 && table[i].UTF8_code[1] == 0 && table[i].UTF8_code[2] == 0) {
 			break;  // 未找到
 		}
 
 		// 早期返回优化：如果当前编码大于目标，说明表中无此汉字（假设有序）
 		if (table[i].UTF8_code[0] > target[0] ||
-			(table[i].UTF8_code[0] == target[0] && table[i].UTF8_code[1] > target[1])) {
+			(table[i].UTF8_code[0] == target[0] && table[i].UTF8_code[1] > target[1]) ||
+			(table[i].UTF8_code[0] == target[0] && table[i].UTF8_code[1] == target[1] && table[i].UTF8_code[2] > target[2])) {
 			break;  // 目标汉字不在表中
 		}
 
-		// 比较UTF-8编码（比较前2字节）
-		if (table[i].UTF8_code[0] == target[0] && table[i].UTF8_code[1] == target[1]) {
+		// 比较UTF-8编码（比较完整的3字节）
+		if (table[i].UTF8_code[0] == target[0] &&
+			table[i].UTF8_code[1] == target[1] &&
+			table[i].UTF8_code[2] == target[2]) {
 			// 找到汉字，开始绘制
 			const uint8_t *char_data = table[i].font_data;  // 获取字模数据
 
@@ -606,6 +609,11 @@ SCREEN_Event_t SCREEN_DrawUTFChar(int16_t x0, int16_t y0, const char *utf8_char,
 			return SCREEN_OK;
 		}
 		i++;
+
+		// 安全保护：防止无限循环（如果字体表没有正确的结束标记）
+		if (i >= 10000) {  // 字体表不可能这么大
+			break;
+		}
 	}
 
 	return SCREEN_CHAR_EXCEED;  // 未找到该汉字
@@ -733,4 +741,34 @@ SCREEN_Event_t SCREEN_DrawImage(int16_t x0, int16_t y0, uint16_t width, uint16_t
         }
     }
     return SCREEN_OK;
+}
+
+/**
+ * @brief 绘制RGB565图像(使用SCREEN_DrawPixel)
+ * @param x0: 图像左上角X坐标
+ * @param y0: 图像左上角Y坐标
+ * @param width: 图像宽度(像素)
+ * @param height: 图像高度(像素)
+ * @param image: 图像数据指针
+ * @param type: 绘制模式
+ */
+SCREEN_Event_t SCREEN_DrawRGBImage(int16_t x0, int16_t y0, uint16_t width, uint16_t height,
+								const uint8_t *image, SCREEN_Mode_t type)
+{
+	if (width == 0 || height == 0 || image == NULL) {
+		return SCREEN_OK;
+	}
+
+	// 遍历图像的每个像素
+	for (uint16_t y = 0; y < height; y++) {
+		for (uint16_t x = 0; x < width; x++) {
+			// 获取 RGB565 颜色值（每个像素 2 字节）
+			SCREEN_Pixel_t pixel = (SCREEN_Pixel_t)(image[(y * width + x) * 2 + 1] << 8 | image[(y * width + x) * 2]);
+			if(pixel != SCREEN_WHITE){
+				SCREEN_DrawPixel(x0 + x, y0 + y, pixel, type);
+			}
+		}
+	}
+
+	return SCREEN_OK;
 }

@@ -9,6 +9,8 @@ void UART_Debug_Init(void)
 
    err = R_SCI_UART_Open (&g_uart0_ctrl, &g_uart0_cfg);
    assert(FSP_SUCCESS == err);
+
+   printf("[UART] UART_Open\r\n");
 }
 
 /* 发送完成标志 */

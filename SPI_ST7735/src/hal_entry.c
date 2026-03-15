@@ -26,14 +26,15 @@ void hal_entry(void)
     TIM_Clock_Init();
     UART_Debug_Init();
     SCREEN_Init();
-    Page_Init();  // 初始化页面系统，显示欢迎页
+//    Page_Init();  // 初始化页面系统，显示欢迎页
 
-    Key_Init(); 
+//    Key_Init();
 
     printf("[Main] Init OK!\r\n");
 
     while(1){
-        Page_Switch();
+//        Page_Switch();
+        LCD_Test();
         R_BSP_SoftwareDelay(10, BSP_DELAY_UNITS_MILLISECONDS);
     }
 

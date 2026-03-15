@@ -160,7 +160,7 @@ void SPI_ST7735_Init(){
 
 /**
   * @brief 屏幕初始化
-  * @note  
+  * @note
   */
 void SCREEN_Init(void) {
     SPI_ST7735_Init();
@@ -454,7 +454,7 @@ void SCREEN_RefreshScreen(void) {
 		screen_state.is_refreshing = 1;
 
 		// 记录本次刷新开始时间
-		current_start_time = TIM_Clock_Init();
+		current_start_time = TIM_Clock_GetTime();
 
 		// 计算刷新间隔（上次刷新结束到本次刷新开始）
 		// 使用unsigned减法自动处理时钟溢出，无需特殊判断
@@ -493,7 +493,7 @@ void SCREEN_RefreshScreen(void) {
 #endif
 
 		// 记录本次刷新结束时间
-		current_end_time = TIM_Clock_Init();
+		current_end_time = TIM_Clock_GetTime();
 
 		// 计算刷新耗时（本次刷新结束 - 本次刷新开始）
 		// 使用unsigned减法自动处理时钟溢出

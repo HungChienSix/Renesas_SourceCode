@@ -2,13 +2,11 @@
 #define SCREEN_USER_SCREEN_H_
 
 #include "screen_ui.h"
+#include "../sys_info.h"
 
-void LCD_Test(void);
-void Page_Init(void);
-void Page_Switch(void);
-
-// 页面函数声明
-void Page1(void);
-void Page2(void);
+void LCD_Test(uint8_t test_id);
+void Page0_Welcome(void);
+void Page1_Main(void);
+void Page2_SongInfo(void);
 
 #endif /* SCREEN_USER_SCREEN_H_ */

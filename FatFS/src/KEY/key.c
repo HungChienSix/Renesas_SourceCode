@@ -5,12 +5,14 @@
 #include "key.h"
 #include "./TIM_Clock/tim_clock.h"
 
-Key_t key_data[KEY_MAX] = 
+bool Key_IsPressed(Key_ID_t key_id);
+
+Key_t key_data[KEY_MAX] =
 {
-    {KEY_1, BSP_IO_PORT_02_PIN_14, BSP_IO_PORT_09_PIN_07, BSP_IO_LEVEL_HIGH, KEY_State_Idle, 0, 0, false, false, KEY_Event_NULL},
-    {KEY_2, BSP_IO_PORT_02_PIN_14, BSP_IO_PORT_03_PIN_11, BSP_IO_LEVEL_HIGH, KEY_State_Idle, 0, 0, false, false, KEY_Event_NULL},
-    {KEY_3, BSP_IO_PORT_09_PIN_00, BSP_IO_PORT_09_PIN_07, BSP_IO_LEVEL_HIGH, KEY_State_Idle, 0, 0, false, false, KEY_Event_NULL},
-    {KEY_4, BSP_IO_PORT_09_PIN_00, BSP_IO_PORT_03_PIN_11, BSP_IO_LEVEL_HIGH, KEY_State_Idle, 0, 0, false, false, KEY_Event_NULL}
+    {KEY_1, BSP_IO_PORT_02_PIN_14, BSP_IO_PORT_09_PIN_07, KEY_State_Idle, 0, 0, false, false, KEY_Event_NULL},
+    {KEY_2, BSP_IO_PORT_02_PIN_14, BSP_IO_PORT_03_PIN_11, KEY_State_Idle, 0, 0, false, false, KEY_Event_NULL},
+    {KEY_3, BSP_IO_PORT_09_PIN_00, BSP_IO_PORT_09_PIN_07, KEY_State_Idle, 0, 0, false, false, KEY_Event_NULL},
+    {KEY_4, BSP_IO_PORT_09_PIN_00, BSP_IO_PORT_03_PIN_11, KEY_State_Idle, 0, 0, false, false, KEY_Event_NULL}
 };
 
 bool Key_IsPressed(Key_ID_t key_id)
@@ -159,11 +161,30 @@ void Key_ClearEvent(Key_ID_t key_id){
     }
 }
 
-Key_t Key_GetInfo(Key_ID_t key_id){
-    if (key_id >= KEY_MAX)
-    {
-        Key_t empty = {0};
-        return empty;
+void Key_GetInput(Input_Event_t *input){
+    bool found = false;
+
+    for(uint8_t i = 0; i < KEY_MAX; i++){
+        // 获取按键事件 (KEY_Event_NULL=0, KEY_Event_ShortPress=1, KEY_Event_LongPress=2)
+        Key_Event_t key_event = Key_GetEvent((Key_ID_t)i);
+
+        if(key_event != KEY_Event_NULL){
+            // 找到第一个有事件的按键，存入input
+            input->id = i;                // 按键ID作为标记值
+            input->event = key_event;     // 事件类型 (1短按, 2长按)
+            found = true;
+            break;
+        }
     }
-    return key_data[key_id];
+
+    if (!found) {
+        input->id = 0xFF;  // 无效ID表示没有按键事件
+        input->event = KEY_Event_NULL;  // 无事件
+    }
+}
+
+void    Key_ClearInput(void){
+    for(uint8_t i = 0; i < KEY_MAX; i++){
+        Key_ClearEvent((Key_ID_t)i);  // 清除按键事件，避免重复读取
+    }
 }

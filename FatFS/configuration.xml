@@ -132,8 +132,8 @@
       <property id="config.bsp.option_setting.bps_sel.3" value=""/>
     </config>
     <config id="config.bsp.ra">
-      <property id="config.bsp.common.main" value="0x1000"/>
-      <property id="config.bsp.common.heap" value="0x1000"/>
+      <property id="config.bsp.common.main" value="0x4000"/>
+      <property id="config.bsp.common.heap" value="0x8000"/>
       <property id="config.bsp.common.bootloader.xip_enable" value="config.bsp.common.bootloader.xip_enable.disabled"/>
       <property id="config.bsp.common.vcc" value="3300"/>
       <property id="config.bsp.common.checking" value="config.bsp.common.checking.disabled"/>
@@ -601,6 +601,8 @@
       <configSetting altId="debug0.swdio.p108" configurationId="debug0.swdio"/>
       <configSetting altId="p000.input" configurationId="p000"/>
       <configSetting altId="p000.gpio_mode.gpio_mode_in" configurationId="p000.gpio_mode"/>
+      <configSetting altId="p002.output.low" configurationId="p002"/>
+      <configSetting altId="p002.gpio_mode.gpio_mode_out.low" configurationId="p002.gpio_mode"/>
       <configSetting altId="p108.debug0.swdio" configurationId="p108"/>
       <configSetting altId="p108.gpio_mode.gpio_mode_peripheral" configurationId="p108.gpio_mode"/>
       <configSetting altId="p112.ssi0.ssisck" configurationId="p112"/>
@@ -630,10 +632,16 @@
       <configSetting altId="p412.gpio_mode.gpio_mode_peripheral" configurationId="p412.gpio_mode"/>
       <configSetting altId="p413.sdhi0.clk" configurationId="p413"/>
       <configSetting altId="p413.gpio_mode.gpio_mode_peripheral" configurationId="p413.gpio_mode"/>
+      <configSetting altId="p511.output.low" configurationId="p511"/>
+      <configSetting altId="p511.gpio_mode.gpio_mode_out.low" configurationId="p511.gpio_mode"/>
       <configSetting altId="p706.sci3.rxd" configurationId="p706"/>
       <configSetting altId="p706.gpio_mode.gpio_mode_peripheral" configurationId="p706.gpio_mode"/>
       <configSetting altId="p707.sci3.txd" configurationId="p707"/>
       <configSetting altId="p707.gpio_mode.gpio_mode_peripheral" configurationId="p707.gpio_mode"/>
+      <configSetting altId="p803.output.low" configurationId="p803"/>
+      <configSetting altId="p803.gpio_mode.gpio_mode_out.low" configurationId="p803.gpio_mode"/>
+      <configSetting altId="p804.output.low" configurationId="p804"/>
+      <configSetting altId="p804.gpio_mode.gpio_mode_out.low" configurationId="p804.gpio_mode"/>
       <configSetting altId="p900.output.low" configurationId="p900"/>
       <configSetting altId="p900.gpio_mode.gpio_mode_out.low" configurationId="p900.gpio_mode"/>
       <configSetting altId="p907.input" configurationId="p907"/>
