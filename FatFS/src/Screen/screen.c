@@ -13,19 +13,6 @@
 /* 圆弧点缓存数组最大大小（基于Bresenham算法，足够容纳最大半径的圆弧点） */
 #define SCREEN_MAX_ARC_POINTS 128
 
-// 定义字体数据（只在此编译单元中定义一次）
-#define FONTS_DATA_EXTERN
-#include "fonts.h"
-
-/**
- * @brief 填充页面
- * @param Pixel_Set: 填充颜色
- */
-void SCREEN_FillScreen(SCREEN_Pixel_t Pixel_Set)
-{
-	FillScreen(Pixel_Set);
-}
-
 /**
  * @brief 绘制像素
  * @param x0: 像素水平坐标

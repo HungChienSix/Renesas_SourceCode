@@ -1,17 +1,19 @@
-#ifndef ST7735_H
-#define ST7735_H
+#ifndef __ST7735_H__
+#define __ST7735_H__
 
 #include "hal_data.h"
+#include <stdio.h>
 
 #define ST7735 
 
 // GPIO and Peripheral Setting
-#define ST7735_SPI hspi1
-
 #define TFT_RES_Pin     BSP_IO_PORT_05_PIN_11
 #define TFT_DC_Pin      BSP_IO_PORT_08_PIN_04
 #define TFT_CS_Pin 	    BSP_IO_PORT_08_PIN_03
 #define TFT_BLK_Pin 	BSP_IO_PORT_00_PIN_02
+
+#define TFT_SCK_Pin 	BSP_IO_PORT_02_PIN_02
+#define TFT_TXD_Pin 	BSP_IO_PORT_03_PIN_02
 
 // Screen Size
 #define ST7735_XSTART 2
@@ -68,11 +70,11 @@
 #define ST7735_MADCTL_MY  0x80
 #define ST7735_MADCTL_MV  0x20
 
-// SPI发送超时
-#define ST7735_SPI_CMD_TIMEOUT		100
-#define ST7735_SPI_DATA_TIMEOUT		500
+// SPI发送超时 (10 MHz时钟)
+#define SPI_CMD_TIMEOUT_us		5000000
+#define SPI_DATA_TIMEOUT_us		5000000  
 
-// 分区刷新宏 
+// 分区刷新宏
 #define ST7735_PARTIAL_REFRESH
 
 typedef uint16_t SCREEN_Pixel_t;
@@ -83,43 +85,26 @@ typedef enum SCREEN_Mode{
 } SCREEN_Mode_t;
 
 /**
- * @brief SPI传输错误类型
- */
-typedef enum ST7735_SPI_Error{
-	ST7735_SPI_OK = 0,         // SPI传输成功
-	ST7735_SPI_TIMEOUT,         // SPI传输超时
-	ST7735_SPI_BUSY,           // SPI设备忙碌
-	ST7735_SPI_ERROR,           // SPI传输错误
-} ST7735_SPI_Error_t;
-
-/**
  * @brief 屏幕状态结构体
  * @note 用于记录屏幕运行状态、性能指标和配置信息
  */
 typedef struct {
-	/* 刷新状态标志 */
-	uint8_t is_refreshing;           // 是否正在刷新屏幕 (0=空闲, 1=刷新中)
-
-	/* 刷新耗时记录 */
-	uint32_t refresh_time_ms;        // 刷新耗时
-
-	/* 刷新间隔记录 */
-	uint32_t refresh_interval_ms;    // 刷新间隔：从上次刷新结束到本次刷新开始
-	
+	uint8_t is_refreshing;          // 是否正在刷新屏幕 (0=空闲, 1=刷新中)
+	uint32_t refresh_time_ms;       // 刷新耗时
+	uint32_t refresh_interval_ms;   // 刷新间隔：从上次刷新结束到本次刷新开始
 	float refresh_rate_fps;         // 刷新帧率（帧每秒）
-
 } struSCREEN_state_t;
 
 // 函数声明
 void SPI_ST7735_Init(void);
 void SCREEN_Init(void);
+void SCREEN_FillScreen(SCREEN_Pixel_t Pixel_Set);
+void SCREEN_RefreshScreen(void);
+
 SCREEN_Pixel_t ReadPixel(int16_t x, int16_t y);
 void DrawPixel(int16_t x, int16_t y, SCREEN_Pixel_t Pixel_Set);
 void DrawHorLine(int16_t x0, int16_t x1, int16_t y, SCREEN_Pixel_t Pixel_Set, SCREEN_Mode_t type);
 void DrawVerLine(int16_t x, int16_t y1, int16_t y2, SCREEN_Pixel_t Pixel_Set, SCREEN_Mode_t type);
-void FillScreen(SCREEN_Pixel_t Pixel_Set);
-void SCREEN_RefreshScreen(void);
-void ST7735_SPI_Reset(void);  // SPI错误恢复函数
 
 // 辅助函数
 uint32_t SCREEN_GetRefreshTime();

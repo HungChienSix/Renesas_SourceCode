@@ -39,9 +39,27 @@ void hal_entry(void)
     FIL file;       // 文件对象
 
     UART_Debug_Init();
+    SPI_ST7735_Init();
     SCREEN_Init();
     I2S_Init();
     TIM_Clock_Init();
+
+    // 绘制测试矩形框
+    SCREEN_FillScreen(SCREEN_RED);
+    SCREEN_RefreshScreen();
+    R_BSP_SoftwareDelay(500U, BSP_DELAY_UNITS_MILLISECONDS);
+
+    // 绘制四个不同颜色的矩形框
+    SCREEN_DrawRectHollow(10, 118, 10, 118, SCREEN_RED, SCREEN_Nor);
+    SCREEN_DrawRectHollow(15, 113, 15, 113, SCREEN_GREEN, SCREEN_Nor);
+    SCREEN_DrawRectHollow(20, 108, 20, 108, SCREEN_BLUE, SCREEN_Nor);
+    SCREEN_DrawRectHollow(25, 103, 25, 103, SCREEN_YELLOW, SCREEN_Nor);
+    SCREEN_RefreshScreen();
+
+    while(1){
+        printf("[Main] Wait...\r\n");
+        R_BSP_SoftwareDelay(100U, BSP_DELAY_UNITS_MILLISECONDS);
+    }
 
     Page0_Welcome();
 
@@ -120,10 +138,6 @@ void hal_entry(void)
 
     Page1_Main();
     g_sys_info.state = 1;  // 切换到主界面状态
-
-    while(1){
-        Page2_SongInfo();
-    }
 
     while(1){
         Key_GetInput(&input);

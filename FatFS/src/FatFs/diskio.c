@@ -16,7 +16,9 @@ extern __IO uint32_t g_transfer_complete ;
 extern __IO uint32_t g_card_erase_complete ;
 //extern __IO bool g_card_inserted ;
 
-uint32_t timeout_ms = 1000;
+#define SDHI_TIMEOUT_us 100000
+
+static uint32_t timeout_us = SDHI_TIMEOUT_us;
 
 sdmmc_device_t my_sdmmc_device;
 
@@ -144,10 +146,12 @@ DRESULT disk_read (
         R_SDHI_Read(&g_sdmmc0_ctrl, buff, sector , count); //1 sector == 512 bytes
 
         /* 添加超时机制，避免无限等待 */
-        while (g_transfer_complete == 0 && timeout_ms>0)
+        timeout_us = SDHI_TIMEOUT_us;
+
+        while (g_transfer_complete == 0 && timeout_us>0)
         {
-            timeout_ms--;
-            R_BSP_SoftwareDelay(1U, BSP_DELAY_UNITS_MILLISECONDS);
+            timeout_us--;
+            R_BSP_SoftwareDelay(1U, BSP_DELAY_UNITS_MICROSECONDS);
         }
 
         if (g_transfer_complete == 0)
@@ -158,7 +162,7 @@ DRESULT disk_read (
         }
 
         g_transfer_complete = 0;  // 清除标志
-        timeout_ms = 1000;
+        timeout_us = SDHI_TIMEOUT_us;
 
         res = RES_OK;
         return res;
@@ -197,10 +201,12 @@ DRESULT disk_write (
         R_SDHI_Write(&g_sdmmc0_ctrl, buff, sector , count);
 
         /* 添加超时机制，避免无限等待 */
-        while (g_transfer_complete == 0 && timeout_ms>0)
+        timeout_us = SDHI_TIMEOUT_us;
+
+        while (g_transfer_complete == 0 && timeout_us>0)
         {
-            timeout_ms--;
-            R_BSP_SoftwareDelay(1U, BSP_DELAY_UNITS_MILLISECONDS);
+            timeout_us--;
+            R_BSP_SoftwareDelay(1U, BSP_DELAY_UNITS_MICROSECONDS);
         }
 
         if (g_transfer_complete == 0)
@@ -211,7 +217,7 @@ DRESULT disk_write (
         }
 
         g_transfer_complete = 0;  // 清除标志
-        timeout_ms = 1000;
+        timeout_us = SDHI_TIMEOUT_us;
 
         res = RES_OK;
         return res;

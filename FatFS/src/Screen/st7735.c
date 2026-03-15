@@ -10,7 +10,7 @@ static uint16_t display_ram[ST7735_HEIGHT][ST7735_WIDTH] = {0x0000};
 void SCREEN_RefreshScreen_Force(void) ;
 
 // SPI 发送相关变量
-uint32_t timeout_us = 100000;
+static uint32_t timeout_us ;
 volatile bool spi_transfer_complete_flag = false;
 
 void sci_spi_callback(spi_callback_args_t *p_args){
@@ -29,54 +29,11 @@ void sci_spi_callback(spi_callback_args_t *p_args){
 /* 屏幕状态全局变量定义 */
 struSCREEN_state_t screen_state = {0};
 
-/**
- * @brief 等待SPI传输完成
- * @param timeout_us 超时时间（微秒）
- * @return SPI传输状态
- * @note 添加错误处理，避免静默失败
- */
-static ST7735_SPI_Error_t ST7735_WaitForSPI(uint32_t timeout_us)
-{
-	uint32_t start_time = timeout_us;
-
-	while (!spi_transfer_complete_flag && timeout_us > 0) {
-		R_BSP_SoftwareDelay(1U, BSP_DELAY_UNITS_MICROSECONDS);
-		timeout_us--;
-	}
-
-	// 检查超时
-	if (timeout_us == 0) {
-		// 超时后，尝试重置SPI标志
-		spi_transfer_complete_flag = false;
-		return ST7735_SPI_TIMEOUT;
-	}
-
-	// 重置SPI标志
-	spi_transfer_complete_flag = false;
-	return ST7735_SPI_OK;
-}
-
 void ST7735_Reset(void){
     R_IOPORT_PinWrite(&g_ioport_ctrl, BSP_IO_PORT_05_PIN_11, BSP_IO_LEVEL_LOW); // RES
     R_BSP_SoftwareDelay(100U, BSP_DELAY_UNITS_MILLISECONDS);
 	R_IOPORT_PinWrite(&g_ioport_ctrl, BSP_IO_PORT_05_PIN_11, BSP_IO_LEVEL_HIGH); //RES
 	R_BSP_SoftwareDelay(100U, BSP_DELAY_UNITS_MILLISECONDS);
-}
-
-/**
- * @brief SPI错误恢复函数
- * @note 当SPI传输发生错误时调用，重置SPI状态以恢复通信
- */
-void ST7735_SPI_Reset(void)
-{
-	// 重置SPI传输完成标志
-	spi_transfer_complete_flag = false;
-
-	// 确保CS引脚为高电平（释放设备）
-	R_IOPORT_PinWrite(&g_ioport_ctrl, BSP_IO_PORT_08_PIN_03, BSP_IO_LEVEL_HIGH);
-
-	// 短暂延迟确保设备复位
-	R_BSP_SoftwareDelay(10U, BSP_DELAY_UNITS_MILLISECONDS);
 }
 
 void ST7735_WriteCmd(uint8_t cmd){
@@ -85,9 +42,23 @@ void ST7735_WriteCmd(uint8_t cmd){
 
     R_SCI_SPI_Write(&g_spi0_ctrl, &cmd, 1, SPI_BIT_WIDTH_8_BITS);
 
-    // 使用新的错误处理函数
-    ST7735_SPI_Error_t ret = ST7735_WaitForSPI(ST7735_SPI_CMD_TIMEOUT * 1000);
-    (void)ret; // 超时情况下可以选择处理错误，目前保持兼容性
+	/* 添加超时机制，避免无限等待 */
+	timeout_us = SPI_CMD_TIMEOUT_us;
+
+	while (spi_transfer_complete_flag == false && timeout_us>0)
+	{
+		timeout_us--;
+		R_BSP_SoftwareDelay(1U, BSP_DELAY_UNITS_MICROSECONDS);
+	}
+
+	if (spi_transfer_complete_flag == false)
+	{
+		/* 超时处理 */
+		printf("[ST7735] CMD超时\r\n");
+	}
+
+	spi_transfer_complete_flag = false;  // 清除标志
+	timeout_us = SPI_CMD_TIMEOUT_us;
 
 	R_IOPORT_PinWrite(&g_ioport_ctrl, BSP_IO_PORT_08_PIN_03, BSP_IO_LEVEL_HIGH);
 }
@@ -98,9 +69,23 @@ void ST7735_WriteByte(uint8_t data){
 
     R_SCI_SPI_Write(&g_spi0_ctrl, &data, 1, SPI_BIT_WIDTH_8_BITS);
 
-    // 使用新的错误处理函数
-    ST7735_SPI_Error_t ret = ST7735_WaitForSPI(ST7735_SPI_DATA_TIMEOUT * 1000);
-    (void)ret; // 超时情况下可以选择处理错误，目前保持兼容性
+	/* 添加超时机制，避免无限等待 */
+	timeout_us = SPI_DATA_TIMEOUT_us;
+
+	while (spi_transfer_complete_flag == false && timeout_us>0)
+	{
+		timeout_us--;
+		R_BSP_SoftwareDelay(1U, BSP_DELAY_UNITS_MICROSECONDS);
+	}
+
+	if (spi_transfer_complete_flag == false)
+	{
+		/* 超时处理 */
+		printf("[ST7735] Byte超时\r\n");
+	}
+
+	spi_transfer_complete_flag = false;  // 清除标志
+	timeout_us = 1000;
 
     R_IOPORT_PinWrite(&g_ioport_ctrl, BSP_IO_PORT_08_PIN_03, BSP_IO_LEVEL_HIGH);
 }
@@ -111,11 +96,23 @@ void ST7735_WriteData(uint8_t *data, size_t data_size){
 
     R_SCI_SPI_Write(&g_spi0_ctrl, data, data_size, SPI_BIT_WIDTH_8_BITS);
 
-    // 使用新的错误处理函数
-    // 根据数据大小动态调整超时时间
-    uint32_t timeout_us = ST7735_SPI_DATA_TIMEOUT * 1000 * (data_size > 16 ? (data_size / 16) : 1);
-    ST7735_SPI_Error_t ret = ST7735_WaitForSPI(timeout_us);
-    (void)ret; // 超时情况下可以选择处理错误，目前保持兼容性
+	/* 添加超时机制，避免无限等待 */
+	timeout_us = SPI_DATA_TIMEOUT_us;
+
+	while (spi_transfer_complete_flag == false && timeout_us>0)
+	{
+		timeout_us--;
+		R_BSP_SoftwareDelay(1U, BSP_DELAY_UNITS_MICROSECONDS);
+	}
+
+	if (spi_transfer_complete_flag == false)
+	{
+		/* 超时处理 */
+		printf("[ST7735] DATA超时\r\n");
+	}
+
+	spi_transfer_complete_flag = false;  // 清除标志
+	timeout_us = SPI_DATA_TIMEOUT_us;
 
 	R_IOPORT_PinWrite(&g_ioport_ctrl, BSP_IO_PORT_08_PIN_03, BSP_IO_LEVEL_HIGH);
 }
@@ -156,6 +153,8 @@ void SPI_ST7735_Init(){
 
     err = R_SCI_SPI_Open(&g_spi0_ctrl, &g_spi0_cfg);
     assert(FSP_SUCCESS == err);
+
+	printf("[ST7735] SPI_Open\r\n");
 }
 
 /**
@@ -163,8 +162,6 @@ void SPI_ST7735_Init(){
   * @note
   */
 void SCREEN_Init(void) {
-    SPI_ST7735_Init();
-
 	ST7735_Reset();
 	ST7735_WriteCmd(ST7735_SLPOUT);
 	R_BSP_SoftwareDelay(100U, BSP_DELAY_UNITS_MILLISECONDS);
@@ -254,7 +251,7 @@ void SCREEN_Init(void) {
 	ST7735_WriteCmd(ST7735_DISPON);
 	R_BSP_SoftwareDelay(50U, BSP_DELAY_UNITS_MILLISECONDS);
 	ST7735_SetRotation(ST7735_ROTATION);
-	FillScreen(SCREEN_BLACK);
+	SCREEN_FillScreen(SCREEN_BLACK);
 	SCREEN_RefreshScreen();
 	R_BSP_SoftwareDelay(100U, BSP_DELAY_UNITS_MILLISECONDS);
 }
@@ -336,7 +333,7 @@ void DrawVerLine(int16_t x, int16_t y0, int16_t y1, SCREEN_Pixel_t Pixel_Set, SC
 /**
  * @brief 填充整个屏幕
  */
-void FillScreen(SCREEN_Pixel_t Pixel_Set) {
+void SCREEN_FillScreen(SCREEN_Pixel_t Pixel_Set) {
 	if(Pixel_Set == SCREEN_BLACK){
 		memset(display_ram, Pixel_Set ? 0xFF : 0x00, sizeof(display_ram));
 	}
@@ -432,8 +429,6 @@ void SCREEN_RefreshScreen_Force(void) {
         ST7735_WriteData(buff, ST7735_WIDTH * 2);
     }
 }
-
-
 
 /**
  * @brief 刷新校验码变化的屏幕
