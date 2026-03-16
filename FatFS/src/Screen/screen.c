@@ -556,27 +556,33 @@ SCREEN_Event_t SCREEN_DrawUTFChar(int16_t x0, int16_t y0, const char *utf8_char,
 	const struFont_UTF_data_t *table = hz_font->font_UTF_data;
 	const uint8_t *target = (const uint8_t *)utf8_char;
 
+	// 调试：打印查找的汉字编码
+	// printf("查找汉字: 0x%02X 0x%02X 0x%02X\n", target[0], target[1], target[2]);
+	// printf("hz_font->width=%d, hz_font->height=%d\n", hz_font->width, hz_font->height);
+
 	// 线性搜索查找汉字，带早期返回优化
 	// 假设字体表按UTF-8编码递增排序
 	int i = 0;
 	while (1) {
 		// 检查是否到达表尾（UTF8_code全0表示结束）
 		if (table[i].UTF8_code[0] == 0 && table[i].UTF8_code[1] == 0 && table[i].UTF8_code[2] == 0) {
+			// printf("未找到汉字，已搜索%d项\n", i);
 			break;  // 未找到
 		}
 
-		// 早期返回优化：如果当前编码大于目标，说明表中无此汉字（假设有序）
-		if (table[i].UTF8_code[0] > target[0] ||
-			(table[i].UTF8_code[0] == target[0] && table[i].UTF8_code[1] > target[1]) ||
-			(table[i].UTF8_code[0] == target[0] && table[i].UTF8_code[1] == target[1] && table[i].UTF8_code[2] > target[2])) {
-			break;  // 目标汉字不在表中
-		}
+		// // 早期返回优化：如果当前编码大于目标，说明表中无此汉字（假设有序）
+		// if (table[i].UTF8_code[0] > target[0] ||
+		// 	(table[i].UTF8_code[0] == target[0] && table[i].UTF8_code[1] > target[1]) ||
+		// 	(table[i].UTF8_code[0] == target[0] && table[i].UTF8_code[1] == target[1] && table[i].UTF8_code[2] > target[2])) {
+		// 	break;  // 目标汉字不在表中
+		// }
 
 		// 比较UTF-8编码（比较完整的3字节）
 		if (table[i].UTF8_code[0] == target[0] &&
 			table[i].UTF8_code[1] == target[1] &&
 			table[i].UTF8_code[2] == target[2]) {
 			// 找到汉字，开始绘制
+			// printf("找到汉字，i=%d\n", i);
 			const uint8_t *char_data = table[i].font_data;  // 获取字模数据
 
 			// 逐行、逐像素绘制（低位在前，逐行，阴码）
@@ -593,14 +599,11 @@ SCREEN_Event_t SCREEN_DrawUTFChar(int16_t x0, int16_t y0, const char *utf8_char,
 					}
 				}
 			}
+			// printf("绘制完成\n");
 			return SCREEN_OK;
 		}
 		i++;
 
-		// 安全保护：防止无限循环（如果字体表没有正确的结束标记）
-		if (i >= 10000) {  // 字体表不可能这么大
-			break;
-		}
 	}
 
 	return SCREEN_CHAR_EXCEED;  // 未找到该汉字

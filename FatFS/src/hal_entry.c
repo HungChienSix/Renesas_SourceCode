@@ -101,7 +101,7 @@ void hal_entry(void)
     while(1){
         Key_GetInput(&g_sys_info.input);
         if(g_sys_info.input.event != KEY_Event_NULL){
-            printf("[Main] Detected Key Event - ID: %u, Event: %u\r\n", g_sys_info.input.id, g_sys_info.input.event);
+            printf("[Main] Detected Key Event - ID: %u, Event: %u\r\n", g_sys_info.input.id+1, g_sys_info.input.event);
             Key_ClearInput();
             break;  // 退出循环，进入主界面
         }
@@ -114,7 +114,7 @@ void hal_entry(void)
     while(1){
         Key_GetInput(&g_sys_info.input);
         if(g_sys_info.input.event != KEY_Event_NULL){
-            printf("[Main] Key: ID=%u, Event=%u\r\n", g_sys_info.input.id, g_sys_info.input.event);
+            printf("[Main] Key: ID=%u, Event=%u\r\n", g_sys_info.input.id+1, g_sys_info.input.event);
 
             //如果在页面一 歌曲选择列表
             if(g_sys_info.page == 1){

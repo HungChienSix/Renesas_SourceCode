@@ -40,27 +40,11 @@ SCREEN_Event_t SCREEN_DrawButton(struUI_Button_t *button){
         int16_t text_x = x0 + 2; // 左边留2像素边距
         int16_t text_y = button->location[1];
 
-        // 判断是纯ASCII还是包含UTF-8中文
-        uint8_t has_utf8 = 0;
-        for(uint8_t i = 0; button->label[i] != '\0'; i++){
-            if((button->label[i] & 0x80) != 0){
-                has_utf8 = 1;
-                break;
-            }
-        }
-
-        if(has_utf8 && button->hz_font != NULL){
-            // 包含中文，使用UTF-8绘制函数
-            ret = SCREEN_DrawUTFString(text_x, text_y, button->label,
-                                        button->ascii_font, button->hz_font,
-                                        button->color[2], SCREEN_Nor);
-        }else if(button->ascii_font != NULL){
-            // 纯ASCII，使用ASCII绘制函数
-            // 需要手动调整y使文本垂直居中
-            text_y = y0 + (button->frame[1] - button->ascii_font->height) / 2;
-            ret = SCREEN_DrawString(text_x, text_y, button->label,
-                                   button->ascii_font, button->color[2], SCREEN_Nor);
-        }
+        // 包含中文，使用UTF-8绘制函数
+        ret = SCREEN_DrawUTFString(text_x, text_y, button->label,
+                                    button->ascii_font, button->hz_font,
+                                    button->color[2], SCREEN_Nor);
+        
     }
 
     return ret;
@@ -113,29 +97,13 @@ SCREEN_Event_t SCREEN_DrawTooltip(struUI_Tooltip_t *tooltip){
         int16_t text_x = x0 + 4; // 左边留4像素边距
         int16_t text_y;
 
-        // 判断是纯ASCII还是包含UTF-8中文
-        uint8_t has_utf8 = 0;
-        for(uint8_t i = 0; tooltip->text[i] != '\0'; i++){
-            if((tooltip->text[i] & 0x80) != 0){
-                has_utf8 = 1;
-                break;
-            }
-        }
+        // 包含中文，使用UTF-8绘制函数
+        // 垂直居中（假设UTF字体高度约为12-16）
+        text_y = y0 + (tooltip->frame[1] - 12) / 2;
+        ret = SCREEN_DrawUTFString(text_x, text_y, tooltip->text,
+                                    tooltip->ascii_font, tooltip->hz_font,
+                                    text_color, SCREEN_Nor);
 
-        if(has_utf8 && tooltip->hz_font != NULL){
-            // 包含中文，使用UTF-8绘制函数
-            // 垂直居中（假设UTF字体高度约为12-16）
-            text_y = y0 + (tooltip->frame[1] - 12) / 2;
-            ret = SCREEN_DrawUTFString(text_x, text_y, tooltip->text,
-                                        tooltip->ascii_font, tooltip->hz_font,
-                                        text_color, SCREEN_Nor);
-        }else if(tooltip->ascii_font != NULL){
-            // 纯ASCII，使用ASCII绘制函数
-            // 垂直居中
-            text_y = y0 + (tooltip->frame[1] - tooltip->ascii_font->height) / 2;
-            ret = SCREEN_DrawString(text_x, text_y, tooltip->text,
-                                   tooltip->ascii_font, text_color, SCREEN_Nor);
-        }
     }
 
     return ret;

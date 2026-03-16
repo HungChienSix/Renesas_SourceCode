@@ -22,15 +22,10 @@ typedef enum SCREEN_Event{
 } SCREEN_Event_t;
 
 // ASCII字体
-extern const struFont_t Font_8x16_consolas;
-extern const struFont_t Font_8x16_consolas_i;
-extern const struFont_t Font_8x16_consolas_b;
-extern const struFont_t Font_8x16_consolas_u;
-
-extern const struFont_t Font_8x12_consolas;
-extern const struFont_t Font_8x12_consolas_i;
-extern const struFont_t Font_8x12_consolas_b;
-extern const struFont_t Font_8x12_consolas_u;
+extern const struFont_t Font_8x16_consolas   ;
+extern const struFont_t Font_8x12_consolas   ;
+extern const struFont_t Font_8x16_serif      ;
+extern const struFont_t Font_8x12_serif      ;
 
 // UTF-8汉字字体
 extern const struFont_UTF_t Font_UTF_16x16_YuMincho;

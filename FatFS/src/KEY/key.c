@@ -9,10 +9,17 @@ bool Key_IsPressed(Key_ID_t key_id);
 
 Key_t key_data[KEY_MAX] =
 {
-    {KEY_1, BSP_IO_PORT_02_PIN_14, BSP_IO_PORT_09_PIN_07, KEY_State_Idle, 0, 0, false, false, KEY_Event_NULL},
+    {KEY_1, BSP_IO_PORT_03_PIN_12, BSP_IO_PORT_02_PIN_00, KEY_State_Idle, 0, 0, false, false, KEY_Event_NULL},
+    {KEY_3, BSP_IO_PORT_02_PIN_14, BSP_IO_PORT_02_PIN_00, KEY_State_Idle, 0, 0, false, false, KEY_Event_NULL},
+    {KEY_2, BSP_IO_PORT_09_PIN_00, BSP_IO_PORT_02_PIN_00, KEY_State_Idle, 0, 0, false, false, KEY_Event_NULL},
+
+    {KEY_4, BSP_IO_PORT_03_PIN_12, BSP_IO_PORT_03_PIN_11, KEY_State_Idle, 0, 0, false, false, KEY_Event_NULL},
     {KEY_2, BSP_IO_PORT_02_PIN_14, BSP_IO_PORT_03_PIN_11, KEY_State_Idle, 0, 0, false, false, KEY_Event_NULL},
-    {KEY_3, BSP_IO_PORT_09_PIN_00, BSP_IO_PORT_09_PIN_07, KEY_State_Idle, 0, 0, false, false, KEY_Event_NULL},
-    {KEY_4, BSP_IO_PORT_09_PIN_00, BSP_IO_PORT_03_PIN_11, KEY_State_Idle, 0, 0, false, false, KEY_Event_NULL}
+    {KEY_1, BSP_IO_PORT_09_PIN_00, BSP_IO_PORT_03_PIN_11, KEY_State_Idle, 0, 0, false, false, KEY_Event_NULL},
+
+    {KEY_3, BSP_IO_PORT_03_PIN_12, BSP_IO_PORT_09_PIN_07, KEY_State_Idle, 0, 0, false, false, KEY_Event_NULL},
+    {KEY_4, BSP_IO_PORT_02_PIN_14, BSP_IO_PORT_09_PIN_07, KEY_State_Idle, 0, 0, false, false, KEY_Event_NULL},
+    {KEY_4, BSP_IO_PORT_09_PIN_00, BSP_IO_PORT_09_PIN_07, KEY_State_Idle, 0, 0, false, false, KEY_Event_NULL},
 };
 
 bool Key_IsPressed(Key_ID_t key_id)

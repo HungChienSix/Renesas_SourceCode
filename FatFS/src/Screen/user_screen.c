@@ -141,91 +141,6 @@ void Page1_Main(void)
 }
 
 /**
- * @brief LCD测试函数，根据test_id执行不同的测试
- * @param test_id 测试ID: 1=线/矩形/弧测试, 2=UI组件测试
- */
-void LCD_Test(uint8_t test_id)
-{
-    if (test_id == 1)
-    {
-        // ========== 测试1: 线条/矩形/圆弧绘制测试 ==========
-        printf("=== Test 1: Shapes ===\n");
-        SCREEN_FillScreen(SCREEN_BLACK);
-
-        // 绘制各种颜色的线条
-        SCREEN_DrawLine(10, 117, 10, 10, SCREEN_RED, SCREEN_Nor);        // 水平红线
-        SCREEN_DrawLine(10, 10, 10, 117, SCREEN_GREEN, SCREEN_Nor);      // 垂直绿线
-        SCREEN_DrawLine(10, 117, 10, 117, SCREEN_BLUE, SCREEN_Nor);      // 对角蓝线
-        SCREEN_DrawLine(117, 10, 10, 117, SCREEN_YELLOW, SCREEN_Nor);   // 反向对角黄线
-
-        // 绘制实心矩形
-        SCREEN_DrawRectSolid(5, 40, 5, 40, SCREEN_RED, SCREEN_Nor);       // 左上红色实心
-        SCREEN_DrawRectSolid(50, 85, 5, 40, SCREEN_GREEN, SCREEN_Nor);     // 右上绿色实心
-        SCREEN_DrawRectSolid(5, 40, 50, 90, SCREEN_BLUE, SCREEN_Nor);      // 左下蓝色实心
-        SCREEN_DrawRectSolid(50, 85, 50, 90, SCREEN_YELLOW, SCREEN_Nor);  // 右下黄色实心
-
-        // 绘制空心矩形
-        SCREEN_DrawRectHollow(90, 125, 90, 125, SCREEN_WHITE, SCREEN_Nor); // 右下角白色空心框
-
-        // 绘制四个象限的圆弧
-        SCREEN_DrawQuarArc(64, 64, 50, SCREEN_Quarter1, SCREEN_RED, SCREEN_Nor);    // 第一象限
-        SCREEN_DrawQuarArc(64, 64, 50, SCREEN_Quarter2, SCREEN_GREEN, SCREEN_Nor);  // 第二象限
-        SCREEN_DrawQuarArc(64, 64, 50, SCREEN_Quarter3, SCREEN_BLUE, SCREEN_Nor);   // 第三象限
-        SCREEN_DrawQuarArc(64, 64, 50, SCREEN_Quarter4, SCREEN_YELLOW, SCREEN_Nor); // 第四象限
-
-        SCREEN_RefreshScreen();
-        printf("Shapes T=%4lu,Interval=%4lu\n", SCREEN_GetRefreshTime(), SCREEN_GetRefreshIntervalTime());
-        R_BSP_SoftwareDelay(2000U, BSP_DELAY_UNITS_MILLISECONDS);
-    }
-    else if (test_id == 2)
-    {
-        // ========== 测试2: UI组件测试 ==========
-        printf("=== Test 2: UI Components ===\n");
-        SCREEN_FillScreen(SCREEN_BLACK);
-        SCREEN_DrawString(5, 2, "UI Test", &Font_8x12_consolas, SCREEN_WHITE, SCREEN_Nor);
-
-        // 测试1: 按钮（未按下）
-        struUI_Button_t btn_idle = {
-            .location = {40, 30},
-            .frame = {60, 20, 4},
-            .label = "Idle",
-            .ascii_font = &Font_8x12_consolas,
-            .hz_font = &Font_UTF_16x16_YuMincho,
-            .color = {SCREEN_WHITE, SCREEN_BLUE, SCREEN_WHITE},  // 边框, 填充, 文本
-            .state = 0x00
-        };
-        SCREEN_DrawButton(&btn_idle);
-
-        // 测试2: 按钮（按下）
-        struUI_Button_t btn_pressed = {
-            .location = {40, 58},
-            .frame = {60, 20, 4},
-            .label = "Pressed",
-            .ascii_font = &Font_8x12_consolas,
-            .hz_font = &Font_UTF_16x16_YuMincho,
-            .color = {SCREEN_WHITE, SCREEN_BLUE, SCREEN_WHITE},  // 边框, 填充, 文本
-            .state = 0xFF
-        };
-        SCREEN_DrawButton(&btn_pressed);
-
-        // 测试3: 提示框
-        struUI_Tooltip_t tooltip = {
-            .location = {40, 90},
-            .frame = {70, 24},
-            .text = "Info Box",
-            .ascii_font = &Font_8x12_consolas,
-            .hz_font = &Font_UTF_16x16_YuMincho,
-            .color = {SCREEN_BLUE, SCREEN_WHITE}  // 背景颜色, 文本颜色
-        };
-        SCREEN_DrawTooltip(&tooltip);
-
-        SCREEN_RefreshScreen();
-        printf("UI Components T=%4lu,Interval=%4lu\n", SCREEN_GetRefreshTime(), SCREEN_GetRefreshIntervalTime());
-        R_BSP_SoftwareDelay(2000U, BSP_DELAY_UNITS_MILLISECONDS);
-    }
-}
-
-/**
  * @brief 歌曲详情界面
  */
 void Page2_SongInfo(void)
@@ -294,4 +209,152 @@ void Page2_SongInfo(void)
     }
 
     SCREEN_RefreshScreen();
+}
+
+/**
+ * @brief LCD测试函数，根据test_id执行不同的测试
+ * @param test_id 测试ID: 1=线/矩形/弧测试, 2=UI组件测试
+ */
+void LCD_Test(uint8_t test_id)
+{
+    if (test_id == 1)
+    {
+        // ========== 测试1: 线条/矩形/圆弧绘制测试 ==========
+        printf("=== Test 1: Shapes ===\n");
+        SCREEN_FillScreen(SCREEN_BLACK);
+
+        // 绘制各种颜色的线条
+        SCREEN_DrawLine(10, 117, 10, 10, SCREEN_RED, SCREEN_Nor);        // 水平红线
+        SCREEN_DrawLine(10, 10, 10, 117, SCREEN_GREEN, SCREEN_Nor);      // 垂直绿线
+        SCREEN_DrawLine(10, 117, 10, 117, SCREEN_BLUE, SCREEN_Nor);      // 对角蓝线
+        SCREEN_DrawLine(117, 10, 10, 117, SCREEN_YELLOW, SCREEN_Nor);   // 反向对角黄线
+
+        // 绘制实心矩形
+        SCREEN_DrawRectSolid(5, 40, 5, 40, SCREEN_RED, SCREEN_Nor);       // 左上红色实心
+        SCREEN_DrawRectSolid(50, 85, 5, 40, SCREEN_GREEN, SCREEN_Nor);     // 右上绿色实心
+        SCREEN_DrawRectSolid(5, 40, 50, 90, SCREEN_BLUE, SCREEN_Nor);      // 左下蓝色实心
+        SCREEN_DrawRectSolid(50, 85, 50, 90, SCREEN_YELLOW, SCREEN_Nor);  // 右下黄色实心
+
+        // 绘制空心矩形
+        SCREEN_DrawRectHollow(90, 125, 90, 125, SCREEN_WHITE, SCREEN_Nor); // 右下角白色空心框
+
+        // 绘制四个象限的圆弧
+        SCREEN_DrawQuarArc(64, 64, 50, SCREEN_Quarter1, SCREEN_RED, SCREEN_Nor);    // 第一象限
+        SCREEN_DrawQuarArc(64, 64, 50, SCREEN_Quarter2, SCREEN_GREEN, SCREEN_Nor);  // 第二象限
+        SCREEN_DrawQuarArc(64, 64, 50, SCREEN_Quarter3, SCREEN_BLUE, SCREEN_Nor);   // 第三象限
+        SCREEN_DrawQuarArc(64, 64, 50, SCREEN_Quarter4, SCREEN_YELLOW, SCREEN_Nor); // 第四象限
+
+        SCREEN_RefreshScreen();
+        printf("Shapes T=%4lu,Interval=%4lu\n", SCREEN_GetRefreshTime(), SCREEN_GetRefreshIntervalTime());
+        R_BSP_SoftwareDelay(2000U, BSP_DELAY_UNITS_MILLISECONDS);
+    }
+    else if (test_id == 2)
+    {
+        // ========== 测试2: UI组件测试 ==========
+        printf("=== Test 2: UI Components ===\n");
+        SCREEN_FillScreen(SCREEN_BLACK);
+
+        // 1. 测试 Tooltip (文本提示框)
+        struUI_Tooltip_t tooltip1 = {
+            .location = {64, 20},
+            .frame = {120, 28},
+            .text = "UI Components",
+            .ascii_font = &Font_8x12_serif,
+            .hz_font = &Font_UTF_16x12_YuMincho,
+            .color = {SCREEN_BLUE, SCREEN_WHITE}  // 背景颜色, 文本颜色
+        };
+        SCREEN_DrawTooltip(&tooltip1);
+
+        // 2. 测试 Button - 未按下状态
+        struUI_Button_t button1 = {
+            .location = {32, 60},
+            .frame = {50, 24, 4},  // 长度, 宽度, 圆角半径
+            .label = "Play",
+            .ascii_font = &Font_8x12_serif,
+            .hz_font = &Font_UTF_16x12_YuMincho,
+            .color = {SCREEN_GREEN, SCREEN_BLUE, SCREEN_WHITE},  // 边框, 填充, 文本
+            .state = 0x00  // 未按下
+        };
+        SCREEN_DrawButton(&button1);
+
+        // 3. 测试 Button - 按下状态
+        struUI_Button_t button2 = {
+            .location = {96, 60},
+            .frame = {50, 24, 4},
+            .label = "Stop",
+            .ascii_font = &Font_8x12_serif,
+            .hz_font = &Font_UTF_16x12_YuMincho,
+            .color = {SCREEN_RED, SCREEN_BLUE, SCREEN_WHITE},
+            .state = 0xFF  // 按下
+        };
+        SCREEN_DrawButton(&button2);
+
+        // 4. 测试 Button - 中文标签
+        struUI_Button_t button3 = {
+            .location = {64, 95},
+            .frame = {70, 24, 4},
+            .label = "AB清明",
+            .ascii_font = &Font_8x12_serif,
+            .hz_font = &Font_UTF_16x12_YuMincho,
+            .color = {SCREEN_YELLOW, SCREEN_RED, SCREEN_GREEN},
+            .state = 0x00
+        };
+        SCREEN_DrawButton(&button3);
+
+        // 5. 测试 ProgressBar - 不同进度
+        struUI_ProgressBar_t progress1 = {
+            .location = {64, 120},
+            .frame = {100, 10},
+            .color = {SCREEN_WHITE, SCREEN_CYAN},  // 边框颜色, 填充颜色
+            .progress = 65
+        };
+        SCREEN_DrawProgressBar(&progress1);
+
+        // 6. 测试 Tooltip - 带阴影
+        struUI_Tooltip_t tooltip2 = {
+            .location = {64, 150},
+            .frame = {80, 20},
+            .text = "Progress: 65%",
+            .ascii_font = &Font_8x12_serif,
+            .hz_font = &Font_UTF_16x12_YuMincho,
+            .color = {SCREEN_RED, SCREEN_YELLOW}
+        };
+        SCREEN_DrawTooltip(&tooltip2);
+
+        SCREEN_RefreshScreen();
+        printf("UI Components Test T=%4lu,Interval=%4lu\n", SCREEN_GetRefreshTime(), SCREEN_GetRefreshIntervalTime());
+        R_BSP_SoftwareDelay(2000U, BSP_DELAY_UNITS_MILLISECONDS);
+    }
+    else if (test_id == 3){
+        // ========== 测试3: 字体测试 ==========
+        printf("=== Font Test ===\n");
+
+        // 清屏并显示标题
+        SCREEN_FillScreen(SCREEN_BLACK);
+
+        // 测试1: 8x16 ASCII Consolas
+        SCREEN_DrawString(2, 0, "ABCDEFGHIJKLM", &Font_8x16_consolas, SCREEN_WHITE, SCREEN_Nor);
+
+        // 测试2: 8x12 ASCII Consolas
+        SCREEN_DrawString(2, 20, "1234567890", &Font_8x12_consolas, SCREEN_WHITE, SCREEN_Nor);
+
+        // 测试3: 8x16 Serif
+        SCREEN_DrawString(2, 40, "ABC123", &Font_8x16_serif, SCREEN_WHITE, SCREEN_Nor);
+
+        // 测试4: 8x12 Serif
+        SCREEN_DrawString(2, 60, "XYZ789", &Font_8x12_serif, SCREEN_WHITE, SCREEN_Nor);
+
+        // 测试5: 16x16 UTF 中文（游明朝）
+        SCREEN_DrawUTFString(2, 80, "你好", &Font_8x16_consolas, &Font_UTF_16x16_YuMincho, SCREEN_WHITE, SCREEN_Nor);
+
+        // 测试6: 16x12 UTF 中文（游明朝）
+        SCREEN_DrawUTFString(2, 100, "你好", &Font_8x16_consolas, &Font_UTF_16x12_YuMincho, SCREEN_WHITE, SCREEN_Nor);
+
+        // 绘制分割线
+        SCREEN_DrawLine(0, 128, 0, 128, SCREEN_WHITE, SCREEN_Nor);
+
+        SCREEN_RefreshScreen();
+        printf("Font Test T=%4lu,Interval=%4lu\n", SCREEN_GetRefreshTime(), SCREEN_GetRefreshIntervalTime());
+        R_BSP_SoftwareDelay(1000U, BSP_DELAY_UNITS_MILLISECONDS);  // 显示1秒
+    }
 }
