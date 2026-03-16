@@ -419,7 +419,7 @@ void I2S_OpenWavFile(FIL *file, struAudio_t *audio)
     }
 
     // 初始化播放状态
-    audio->play_status = 3;        // 重置为未播放状态
+    audio->play_status = 0;        // 重置为未播放状态
     audio->current_sample = 0;     // 重置播放位置
     audio->buffer_index = 0;       // 重置缓冲区索引
 
@@ -511,10 +511,7 @@ WAVPlay_t I2S_PlayWavFile(FIL *file, struAudio_t *audio)
     // 计算缓冲区大小（根据当前音频参数）
     uint32_t file_read_size = I2S_BUFFER_SIZE * sizeof(uint32_t);
 
-    if(audio->play_status == 3){
-        return WAV_Pause;
-    }
-    else if(audio->play_status == 0)
+    if(audio->play_status == 0)
     {
         res = I2S_ReadBuffer(file, audio, data_buffer[audio->buffer_index], I2S_BUFFER_SIZE * audio->bytes_per_sample, &buffer0_bytes);
         if(res != FR_OK)

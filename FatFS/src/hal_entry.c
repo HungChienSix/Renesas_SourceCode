@@ -111,8 +111,6 @@ void hal_entry(void)
     g_sys_info.page = 1;  // 切换到主界面状态
     Page1_Main();
 
-    while(1){}
-
     while(1){
         Key_GetInput(&g_sys_info.input);
         if(g_sys_info.input.event != KEY_Event_NULL){
@@ -151,7 +149,12 @@ void hal_entry(void)
         }
 
         if(g_sys_info.is_play == true){
-            I2S_PlayWavFile(&file,g_sys_info.selected_audio);
+            if(I2S_PlayWavFile(&file,g_sys_info.selected_audio) == WAV_Finish){
+                audio->play_status = 0;        // 重置为未播放状态
+                audio->current_sample = 0;     // 重置播放位置
+                audio->buffer_index = 0;       // 重置缓冲区索引
+                g_sys_info.is_play == false;
+            }
         }
         
     }
