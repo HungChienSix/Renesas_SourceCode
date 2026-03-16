@@ -1,6 +1,7 @@
 #include "user_screen.h"
 #include <stdio.h>
 
+#define SONGS_PER_PAGE 4
 extern sys_info g_sys_info ;
 
 /**
@@ -27,6 +28,8 @@ void Page0_Welcome(void)
  */
 void Page1_Main(void)
 {
+    uint8_t page_id = 0;
+
     SCREEN_FillScreen(SCREEN_BLACK);
 
     // 获取播放列表头部和总数
@@ -48,22 +51,21 @@ void Page1_Main(void)
         // 如果有选中的歌曲，计算其所在页码
         if (g_sys_info.selected_audio != NULL)
         {
-            g_sys_info.page_id = g_sys_info.selected_audio->id / g_sys_info.songs_per_page;
+            page_id = g_sys_info.selected_audio->id / SONGS_PER_PAGE;
         }
 
-        uint8_t songs_per_page = g_sys_info.songs_per_page;
-        uint8_t total_pages = (total_songs + songs_per_page - 1) / songs_per_page;
+        uint8_t total_pages = (total_songs + SONGS_PER_PAGE - 1) / SONGS_PER_PAGE;
 
         // 计算当前页的歌曲索引范围
-        uint16_t page_start_index = g_sys_info.page_id * songs_per_page;
-        uint16_t page_end_index = page_start_index + songs_per_page;
+        uint16_t page_start_index = page_id * SONGS_PER_PAGE;
+        uint16_t page_end_index = page_start_index + SONGS_PER_PAGE;
         if (page_end_index > total_songs) {
             page_end_index = total_songs;
         }
 
         // 显示标题和分页信息
         char page_text[20];
-        snprintf(page_text, sizeof(page_text), "P%d/%d", g_sys_info.page_id + 1, total_pages);
+        snprintf(page_text, sizeof(page_text), "P%d/%d", page_id + 1, total_pages);
         SCREEN_DrawString(95, 2, page_text, &Font_8x12_consolas, SCREEN_WHITE, SCREEN_Nor);
 
         // 显示当前页的歌曲

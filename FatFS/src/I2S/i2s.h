@@ -52,7 +52,7 @@ typedef struct {
 
     // 播放状态
     uint8_t  buffer_index;      // 0=A缓冲区, 1=B缓冲区
-    uint8_t  play_status;       // 0=未播放, 1=播放中, 2=播放完成, 3=播放暂停
+    uint8_t  play_status;       // 0=未播放, 1=播放中, 2=播放完成
     uint8_t  file_opened;       // 0=文件未打开, 1=文件已打开
 
     // 链表指针（用于播放列表）

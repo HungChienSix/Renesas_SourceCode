@@ -2,15 +2,16 @@
 #define SYS_INFO_H_
 
 #include "I2S/i2s.h"
+#include "KEY/key.h"
 
 /**
  * @brief 系统信息结构体
  */
 typedef struct {
-    struAudio_t *selected_audio;  // 当前选中的音频
-    uint8_t      page_id;          // 当前页码（用于分页）
-    uint8_t      songs_per_page;    // 每页显示的歌曲数量
-    uint8_t      state;       
+    struAudio_t     *selected_audio;  // 当前选中的音频
+    uint8_t         page;          // 当前页码（用于分页）
+    bool            is_play;    
+    Input_Event_t   input;
 } sys_info;
 
 /**

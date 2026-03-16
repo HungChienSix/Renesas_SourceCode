@@ -17,13 +17,11 @@ bsp_ipc_semaphore_handle_t g_core_start_semaphore =
 };
 #endif
 
-FIL file;       // 文件对象
-
 sys_info g_sys_info = {
     .selected_audio = NULL,
-    .page_id = 0,
-    .songs_per_page = 4,
-    .state = 0
+    .page = 0,
+    .is_play = false,
+    .input = {0}
 };
 
 /*******************************************************************************************************************//**
@@ -44,19 +42,11 @@ void hal_entry(void)
     I2S_Init();
     TIM_Clock_Init();
 
-    while(1){
-        LCD_Test(1);
-        printf("[Main] Wait...\r\n");
-        R_BSP_SoftwareDelay(100U, BSP_DELAY_UNITS_MILLISECONDS);
-    }
-
     Page0_Welcome();
 
-    printf("[Main] 准备挂载 SD 卡...\r\n");
-    // Mount SD card
     fresult = f_mount(&fs_handle, "1:", 1);  // Use "1:" for SD card
-    printf("[Main] f_mount 返回: %d\r\n", fresult);
     if (fresult != FR_OK) {
+        printf("[Main] f_mount 返回: %d\r\n", fresult);
         printf("[Main] SD卡挂载失败 (代码: %d)\r\n", fresult);
     } else {
         printf("[Main] SD卡挂载成功\r\n");
@@ -100,184 +90,59 @@ void hal_entry(void)
 
     printf("SDcard Read Speed : %d\r\n",SDCard_MeasureReadSpeed());
 
-    g_sys_info.page_id = 0;
-    g_sys_info.selected_audio = I2S_GetAudioById(g_sys_info.page_id);
+    g_sys_info.selected_audio = I2S_GetPlaylistHead();
     if (g_sys_info.selected_audio != NULL)
     {
-        g_sys_info.selected_audio->play_status = 3;
-        g_sys_info.selected_audio->current_sample = 0;
-        g_sys_info.selected_audio->buffer_index = 0;
-        g_sys_info.selected_audio->file_opened = 0;
         I2S_OpenWavFile(&file, g_sys_info.selected_audio);
     }
 
     printf("[Main] Entering main loop...\r\n");
 
-    Input_Event_t input = {0};
-
     while(1){
-        Key_GetInput(&input);
-        if(input.event != KEY_Event_NULL){
-            printf("[Main] Detected Key Event - ID: %u, Event: %u\r\n", input.id, input.event);
+        Key_GetInput(&g_sys_info.input);
+        if(g_sys_info.input.event != KEY_Event_NULL){
+            printf("[Main] Detected Key Event - ID: %u, Event: %u\r\n", g_sys_info.input.id, g_sys_info.input.event);
             Key_ClearInput();
             break;  // 退出循环，进入主界面
         }
         R_BSP_SoftwareDelay(1U, BSP_DELAY_UNITS_MICROSECONDS);
     }
-
+    
+    g_sys_info.page = 1;  // 切换到主界面状态
     Page1_Main();
-    g_sys_info.state = 1;  // 切换到主界面状态
+
+    while(1){}
 
     while(1){
-        Key_GetInput(&input);
-        if(input.event != KEY_Event_NULL){
-            printf("[Main] Key: ID=%u, Event=%u\r\n", input.id, input.event);
+        Key_GetInput(&g_sys_info.input);
+        if(g_sys_info.input.event != KEY_Event_NULL){
+            printf("[Main] Key: ID=%u, Event=%u\r\n", g_sys_info.input.id, g_sys_info.input.event);
 
-            // ========== 按键1：下一首 / 快进 ==========
-            if(input.id == 0){
-                if(g_sys_info.state == 3){
-                    // 详情页：快进 5 秒
-                    if(input.event == KEY_Event_ShortPress){
-                        uint32_t seek_samples = g_sys_info.selected_audio->fmt.samplesPerSec * 5;
-                        uint32_t new_sample = g_sys_info.selected_audio->current_sample + seek_samples;
-                        if(new_sample > g_sys_info.selected_audio->total_samples){
-                            new_sample = g_sys_info.selected_audio->total_samples;
-                        }
-                        g_sys_info.selected_audio->current_sample = new_sample;
-                        uint32_t seek_offset = g_sys_info.selected_audio->data_offset + (new_sample * g_sys_info.selected_audio->bytes_per_sample);
-                        f_lseek(&file, seek_offset);
-                        printf("[Main] 快进5秒: %lu -> %lu samples\r\n", g_sys_info.selected_audio->current_sample - seek_samples, new_sample);
+            //如果在页面一 歌曲选择列表
+            if(g_sys_info.page == 1){
+                if(g_sys_info.input.id == 0 && g_sys_info.input.event == KEY_Event_ShortPress){
+                    if(g_sys_info.selected_audio->next != NULL){
+                        I2S_CloseWavFile(&file, g_sys_info.selected_audio);
+                        g_sys_info.selected_audio = g_sys_info.selected_audio->next;
+                        I2S_OpenWavFile(&file, g_sys_info.selected_audio);
+
+                        Page1_Main();
                     }
                 }
-                else {
-                    // 其他页面：下一首 / 快进
-                    if(input.event == KEY_Event_LongPress){
-                        // 长按：下一首
-                        if(g_sys_info.state == 2){
-                            printf("[Main] 请先暂停播放，再切换歌曲\r\n");
-                        }
-                        else if(g_sys_info.selected_audio->next != NULL){
-                            g_sys_info.selected_audio = g_sys_info.selected_audio->next;
-                            g_sys_info.selected_audio->play_status = 3;
-                            g_sys_info.selected_audio->current_sample = 0;
-                            g_sys_info.selected_audio->buffer_index = 0;
-                            g_sys_info.selected_audio->file_opened = 0;
-                            I2S_OpenWavFile(&file, g_sys_info.selected_audio);
-                        }
-                    }
-                    else if(input.event == KEY_Event_ShortPress){
-                        // 短按：快进 5 秒
-                        uint32_t seek_samples = g_sys_info.selected_audio->fmt.samplesPerSec * 5;
-                        uint32_t new_sample = g_sys_info.selected_audio->current_sample + seek_samples;
-                        if(new_sample > g_sys_info.selected_audio->total_samples){
-                            new_sample = g_sys_info.selected_audio->total_samples;
-                        }
-                        g_sys_info.selected_audio->current_sample = new_sample;
-                        uint32_t seek_offset = g_sys_info.selected_audio->data_offset + (new_sample * g_sys_info.selected_audio->bytes_per_sample);
-                        f_lseek(&file, seek_offset);
-                        printf("[Main] 快进5秒: %lu -> %lu samples\r\n", g_sys_info.selected_audio->current_sample - seek_samples, new_sample);
+                else if(g_sys_info.input.id == 1 && g_sys_info.input.event == KEY_Event_ShortPress){
+                    if(g_sys_info.selected_audio->prev != NULL){
+                        I2S_CloseWavFile(&file, g_sys_info.selected_audio);
+                        g_sys_info.selected_audio = g_sys_info.selected_audio->prev;
+                        I2S_OpenWavFile(&file, g_sys_info.selected_audio);
+
+                        Page1_Main();
                     }
                 }
-            }
-            // ========== 按键2：上一首 / 倒退 ==========
-            else if(input.id == 1){
-                if(g_sys_info.state == 3){
-                    // 详情页：倒退 5 秒
-                    if(input.event == KEY_Event_ShortPress){
-                        uint32_t seek_samples = g_sys_info.selected_audio->fmt.samplesPerSec * 5;
-                        uint32_t new_sample = 0;
-                        if(g_sys_info.selected_audio->current_sample > seek_samples){
-                            new_sample = g_sys_info.selected_audio->current_sample - seek_samples;
-                        }
-                        g_sys_info.selected_audio->current_sample = new_sample;
-                        uint32_t seek_offset = g_sys_info.selected_audio->data_offset + (new_sample * g_sys_info.selected_audio->bytes_per_sample);
-                        f_lseek(&file, seek_offset);
-                        printf("[Main] 倒退5秒: %lu -> %lu samples\r\n", g_sys_info.selected_audio->current_sample + seek_samples, new_sample);
-                    }
-                }
-                else {
-                    // 其他页面：上一首 / 倒退
-                    if(input.event == KEY_Event_LongPress){
-                        // 长按：上一首
-                        if(g_sys_info.state == 2){
-                            printf("[Main] 请先暂停播放，再切换歌曲\r\n");
-                        }
-                        else if(g_sys_info.selected_audio->prev != NULL){
-                            g_sys_info.selected_audio = g_sys_info.selected_audio->prev;
-                            g_sys_info.selected_audio->play_status = 3;
-                            g_sys_info.selected_audio->current_sample = 0;
-                            g_sys_info.selected_audio->buffer_index = 0;
-                            g_sys_info.selected_audio->file_opened = 0;
-                            I2S_OpenWavFile(&file, g_sys_info.selected_audio);
-                        }
-                    }
-                    else if(input.event == KEY_Event_ShortPress){
-                        // 短按：倒退 5 秒
-                        uint32_t seek_samples = g_sys_info.selected_audio->fmt.samplesPerSec * 5;
-                        uint32_t new_sample = 0;
-                        if(g_sys_info.selected_audio->current_sample > seek_samples){
-                            new_sample = g_sys_info.selected_audio->current_sample - seek_samples;
-                        }
-                        g_sys_info.selected_audio->current_sample = new_sample;
-                        uint32_t seek_offset = g_sys_info.selected_audio->data_offset + (new_sample * g_sys_info.selected_audio->bytes_per_sample);
-                        f_lseek(&file, seek_offset);
-                        printf("[Main] 倒退5秒: %lu -> %lu samples\r\n", g_sys_info.selected_audio->current_sample + seek_samples, new_sample);
-                    }
-                }
-            }
-            // ========== 按键3：播放/暂停 / 详情页返回 ==========
-            else if(input.id == 2){
-                if(input.event == KEY_Event_ShortPress){
-                    // 短按：播放/暂停
-                    if(g_sys_info.state == 3){
-                        // 详情页：播放/暂停切换（不停止播放）
-                        if(g_sys_info.selected_audio->play_status == 3){
-                            g_sys_info.selected_audio->play_status = 0;
-                            printf("[Main] 继续播放\r\n");
-                        }
-                        else {
-                            g_sys_info.selected_audio->play_status = 3;
-                            printf("[Main] 暂停播放\r\n");
-                        }
-                    }
-                    else if(g_sys_info.selected_audio->play_status == 3){
-                        // 其他页面：暂停中 -> 开始播放
-                        g_sys_info.selected_audio->play_status = 0;
-                        printf("[Main] 开始播放\r\n");
-                        g_sys_info.state = 2;
-                    }
-                    else {
-                        // 其他页面：播放中 -> 暂停
-                        g_sys_info.selected_audio->play_status = 3;
-                        printf("[Main] 暂停播放\r\n");
-                        g_sys_info.state = 1;
-                    }
-                }
-                else if(input.event == KEY_Event_LongPress){
-                    // 长按：详情页返回主界面 / 其他页面进入详情页
-                    if(g_sys_info.state == 3){
-                        // 详情页：返回歌曲列表
-                        g_sys_info.state = 1;
-                        printf("[Main] 返回歌曲列表\r\n");
-                    }
-                    else if(g_sys_info.state == 1 || g_sys_info.state == 2){
-                        // 其他页面：进入详情页
-                        if(g_sys_info.state == 2){
-                            // 播放中，先暂停
-                            g_sys_info.selected_audio->play_status = 3;
-                        }
-                        g_sys_info.state = 3;
-                        printf("[Main] 进入详情页\r\n");
-                    }
-                }
-            }
-            // ========== 按键4：返回主界面 ==========
-            else if(input.id == 3){
-                if(input.event == KEY_Event_ShortPress || input.event == KEY_Event_LongPress){
-                    // 详情页返回主界面
-                    if(g_sys_info.state == 3){
-                        g_sys_info.state = 1;
-                        printf("[Main] 返回主界面\r\n");
+                else if(g_sys_info.input.id == 2 && g_sys_info.input.event == KEY_Event_ShortPress){
+                    if(g_sys_info.is_play == false){
+                        g_sys_info.is_play = true;
+                    }else{
+                        g_sys_info.is_play = false;
                     }
                 }
             }
@@ -285,22 +150,10 @@ void hal_entry(void)
             Key_ClearInput();
         }
 
-        // 根据状态显示不同界面
-        if(g_sys_info.state == 1){
-            Page1_Main();
+        if(g_sys_info.is_play == true){
+            I2S_PlayWavFile(&file,g_sys_info.selected_audio);
         }
-        else if(g_sys_info.state == 3){
-            Page2_SongInfo();
-        }
-
-        // 测量 I2S_PlayWavFile 运行时间
-        if(g_sys_info.state == 1 || g_sys_info.state == 2 || g_sys_info.state == 3){
-            if(I2S_PlayWavFile(&file, g_sys_info.selected_audio) == WAV_Finish){
-                g_sys_info.selected_audio->play_status = 2;
-                g_sys_info.state = 1;  // 播放完成返回主界面
-                printf("[Main] 播放完成\r\n");
-            }
-        }
+        
     }
 
 

@@ -418,6 +418,11 @@ void I2S_OpenWavFile(FIL *file, struAudio_t *audio)
         return;
     }
 
+    // 初始化播放状态
+    audio->play_status = 3;        // 重置为未播放状态
+    audio->current_sample = 0;     // 重置播放位置
+    audio->buffer_index = 0;       // 重置缓冲区索引
+
     // 依据audio->total_samples计算出整个文件的播放时长，并在播放开始前打印出来
     uint32_t total_seconds = audio->total_samples / audio->fmt.samplesPerSec;
     uint32_t minutes = total_seconds / 60;
