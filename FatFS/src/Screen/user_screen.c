@@ -133,15 +133,6 @@ void Page1_Main(void)
             current_song = current_song->next;
         }
 
-//        // 显示当前选中歌曲索引
-//        char index_text[20];
-//        snprintf(index_text, sizeof(index_text), "ID:%u", g_sys_info.selected_audio->id);
-//        SCREEN_DrawString(4, 120, index_text, &Font_8x12_consolas, SCREEN_GREEN, SCREEN_Nor);
-//
-//        // 显示歌曲总数
-//        char total_text[20];
-//        snprintf(total_text, sizeof(total_text), "T:%u", total_songs);
-//        SCREEN_DrawString(80, 120, total_text, &Font_8x12_consolas, SCREEN_WHITE, SCREEN_Nor);
     }
 
     SCREEN_RefreshScreen();
@@ -201,7 +192,7 @@ void LCD_Test(uint8_t test_id)
             .color = {SCREEN_WHITE, SCREEN_BLUE, SCREEN_WHITE},  // 边框, 填充, 文本
             .state = 0x00
         };
-        SCREEN_DrawButton(&btn_idle, SCREEN_Nor);
+        SCREEN_DrawButton(&btn_idle);
 
         // 测试2: 按钮（按下）
         struUI_Button_t btn_pressed = {
@@ -213,7 +204,7 @@ void LCD_Test(uint8_t test_id)
             .color = {SCREEN_WHITE, SCREEN_BLUE, SCREEN_WHITE},  // 边框, 填充, 文本
             .state = 0xFF
         };
-        SCREEN_DrawButton(&btn_pressed, SCREEN_Nor);
+        SCREEN_DrawButton(&btn_pressed);
 
         // 测试3: 提示框
         struUI_Tooltip_t tooltip = {

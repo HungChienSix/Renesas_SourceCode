@@ -1,57 +1,7 @@
 #include "screen_ui.h"
 #include <string.h>
-#include "../KEY/key.h"
 
-// /**
-//  * @brief 获取输入事件，将按键状态转换为struINPUT格式
-//  * @param input 指向struINPUT数组的指针，用于存储输入数据
-//  * @note  从小到大遍历所有按键，找到第一个被按下的按键存入input[0]
-//  *        input[1]保留用于存放摇杆数据
-//  */
-// void Screen_GetInput(struINPUT_t *input){
-//     // 如果input数组内容不为空直接return
-//     if(input[0].value != 0){
-//         return;
-//     }
-
-//     // 初始化input[0]为无按键按下状态
-//     input[0].type = INPUT_TYPE_KEY;
-//     input[0].id = 0;
-//     input[0].value = 0;  // 0表示无按键按下
-
-//     // 从小到大遍历所有按键，找到第一个被按下的按键
-//     for(uint8_t i = 0; i < KEY_MAX; i++){
-//         // 获取按键事件 (KEY_Event_NULL=0, KEY_Event_ShortPress=1, KEY_Event_LongPress=2)
-//         Key_Event_t key_event = Key_GetEvent((Key_ID_t)i);
-
-//         if(key_event != KEY_Event_NULL){
-//             // 找到第一个有事件的按键，存入input[0]
-//             input[0].type = INPUT_TYPE_KEY;
-//             input[0].id = i;                // 按键ID作为标记值
-//             input[0].value = key_event;     // 事件类型 (1短按, 2长按)
-//             break;  // 找到后退出循环
-//         }
-//     }
-//     for(uint8_t i = 0; i < KEY_MAX; i++){
-//         Key_ClearEvent((Key_ID_t)i);  // 清除按键事件，避免重复读取
-//     }
-
-//     // input[1]保留用于存放摇杆数据，暂不实现
-// }
-
-// /**
-//  * @brief 清除输入事件
-//  * @param input 指向struINPUT数组的指针，用于清空输入数据
-//  * @note  清除所有按键的事件，并清空input数组内容
-//  */
-// void Screen_ClearInput(struINPUT_t *input){
-//     // 清空input数组内容
-//     if(input != NULL){
-//         memset(input, 0, sizeof(struINPUT_t) * 2);  // 清空2个元素
-//     }
-// }
-
-SCREEN_Event_t SCREEN_DrawButton(struUI_Button_t *button, SCREEN_Mode_t type){
+SCREEN_Event_t SCREEN_DrawButton(struUI_Button_t *button){
     // 参数校验
     if(button == NULL){
         return SCREEN_PARAM_ERROR;
@@ -74,10 +24,10 @@ SCREEN_Event_t SCREEN_DrawButton(struUI_Button_t *button, SCREEN_Mode_t type){
     // color[0] = 边框颜色, color[1] = 填充颜色, color[2] = 文本颜色
     if(button->state == 0x00){
         // 未按下状态 - 绘制空心圆角矩形
-        ret = SCREEN_DrawRoundRectHollow(x0, x1, y0, y1, button->frame[2], button->color[0], type);
+        ret = SCREEN_DrawRoundRectHollow(x0, x1, y0, y1, button->frame[2], button->color[0], SCREEN_Nor);
     }else{
         // 按下状态 - 绘制实心圆角矩形
-        ret = SCREEN_DrawRoundRectSolid(x0, x1, y0, y1, button->frame[2], button->color[1], type);
+        ret = SCREEN_DrawRoundRectSolid(x0, x1, y0, y1, button->frame[2], button->color[1], SCREEN_Nor);
     }
 
     if(ret != SCREEN_OK){
@@ -101,15 +51,15 @@ SCREEN_Event_t SCREEN_DrawButton(struUI_Button_t *button, SCREEN_Mode_t type){
 
         if(has_utf8 && button->hz_font != NULL){
             // 包含中文，使用UTF-8绘制函数
-            ret = SCREEN_DrawUTF8String(text_x, text_y, button->label,
+            ret = SCREEN_DrawUTFString(text_x, text_y, button->label,
                                         button->ascii_font, button->hz_font,
-                                        button->color[2], type);
+                                        button->color[2], SCREEN_Nor);
         }else if(button->ascii_font != NULL){
             // 纯ASCII，使用ASCII绘制函数
             // 需要手动调整y使文本垂直居中
             text_y = y0 + (button->frame[1] - button->ascii_font->height) / 2;
             ret = SCREEN_DrawString(text_x, text_y, button->label,
-                                   button->ascii_font, button->color[2], type);
+                                   button->ascii_font, button->color[2], SCREEN_Nor);
         }
     }
 
@@ -176,7 +126,7 @@ SCREEN_Event_t SCREEN_DrawTooltip(struUI_Tooltip_t *tooltip){
             // 包含中文，使用UTF-8绘制函数
             // 垂直居中（假设UTF字体高度约为12-16）
             text_y = y0 + (tooltip->frame[1] - 12) / 2;
-            ret = SCREEN_DrawUTF8String(text_x, text_y, tooltip->text,
+            ret = SCREEN_DrawUTFString(text_x, text_y, tooltip->text,
                                         tooltip->ascii_font, tooltip->hz_font,
                                         text_color, SCREEN_Nor);
         }else if(tooltip->ascii_font != NULL){
@@ -191,7 +141,7 @@ SCREEN_Event_t SCREEN_DrawTooltip(struUI_Tooltip_t *tooltip){
     return ret;
 }
 
-SCREEN_Event_t SCREEN_DrawProgressBar(struUI_ProgressBar_t *bar, SCREEN_Pixel_t fill_color, SCREEN_Mode_t type){
+SCREEN_Event_t SCREEN_DrawProgressBar(struUI_ProgressBar_t *bar){
     // 参数校验
     if(bar == NULL){
         return SCREEN_PARAM_ERROR;
@@ -217,7 +167,7 @@ SCREEN_Event_t SCREEN_DrawProgressBar(struUI_ProgressBar_t *bar, SCREEN_Pixel_t 
     SCREEN_Event_t ret;
 
     // 第一步：绘制边框（圆角矩形空心）- 使用白色
-    ret = SCREEN_DrawRoundRectHollow(x0, x1, y0, y1, radius, SCREEN_WHITE, type);
+    ret = SCREEN_DrawRoundRectHollow(x0, x1, y0, y1, radius, bar->color[1], SCREEN_Nor);
     if(ret != SCREEN_OK){
         return ret;
     }
@@ -229,7 +179,7 @@ SCREEN_Event_t SCREEN_DrawProgressBar(struUI_ProgressBar_t *bar, SCREEN_Pixel_t 
         int16_t fill_x1 = x0 + 1 + fill_width;
 
         // 填充区域使用圆角矩形
-        ret = SCREEN_DrawRoundRectSolid(x0 + 1, fill_x1, y0 + 1, y1 - 1, radius - 1, fill_color, type);
+        ret = SCREEN_DrawRoundRectSolid(x0 + 1, fill_x1, y0 + 1, y1 - 1, radius - 1, bar->color[2], SCREEN_Nor);
         if(ret != SCREEN_OK){
             return ret;
         }

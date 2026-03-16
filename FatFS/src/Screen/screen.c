@@ -634,7 +634,7 @@ static uint8_t UTF8_GetCharLen(uint8_t c)
  * @param Pixel_Set: 绘制图像的颜色(二值)
  * @param type: 绘制模式,SCREEN_Xor 异或模式,SCREEN_Nor 普通模式
  */
-SCREEN_Event_t SCREEN_DrawUTF8String(int16_t x0, int16_t y0, const char *utf8_str,
+SCREEN_Event_t SCREEN_DrawUTFString(int16_t x0, int16_t y0, const char *utf8_str,
 									const struFont_t *ascii_font, const struFont_UTF_t *hz_font,
 									SCREEN_Pixel_t Pixel_Set, SCREEN_Mode_t type)
 {

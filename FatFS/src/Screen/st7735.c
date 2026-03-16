@@ -30,15 +30,15 @@ void sci_spi_callback(spi_callback_args_t *p_args){
 struSCREEN_state_t screen_state = {0};
 
 void ST7735_Reset(void){
-    R_IOPORT_PinWrite(&g_ioport_ctrl, BSP_IO_PORT_05_PIN_11, BSP_IO_LEVEL_LOW); // RES
+    R_IOPORT_PinWrite(&g_ioport_ctrl, TFT_RES_Pin, BSP_IO_LEVEL_LOW); // RES
     R_BSP_SoftwareDelay(100U, BSP_DELAY_UNITS_MILLISECONDS);
-	R_IOPORT_PinWrite(&g_ioport_ctrl, BSP_IO_PORT_05_PIN_11, BSP_IO_LEVEL_HIGH); //RES
+	R_IOPORT_PinWrite(&g_ioport_ctrl, TFT_RES_Pin, BSP_IO_LEVEL_HIGH); //RES
 	R_BSP_SoftwareDelay(100U, BSP_DELAY_UNITS_MILLISECONDS);
 }
 
 void ST7735_WriteCmd(uint8_t cmd){
-    R_IOPORT_PinWrite(&g_ioport_ctrl, BSP_IO_PORT_08_PIN_04, BSP_IO_LEVEL_LOW);
-    R_IOPORT_PinWrite(&g_ioport_ctrl, BSP_IO_PORT_08_PIN_03, BSP_IO_LEVEL_LOW);
+    R_IOPORT_PinWrite(&g_ioport_ctrl, TFT_DC_Pin, BSP_IO_LEVEL_LOW);
+    R_IOPORT_PinWrite(&g_ioport_ctrl, TFT_CS_Pin, BSP_IO_LEVEL_LOW);
 
     R_SCI_SPI_Write(&g_spi0_ctrl, &cmd, 1, SPI_BIT_WIDTH_8_BITS);
 
@@ -60,12 +60,12 @@ void ST7735_WriteCmd(uint8_t cmd){
 	spi_transfer_complete_flag = false;  // 清除标志
 	timeout_us = SPI_CMD_TIMEOUT_us;
 
-	R_IOPORT_PinWrite(&g_ioport_ctrl, BSP_IO_PORT_08_PIN_03, BSP_IO_LEVEL_HIGH);
+	R_IOPORT_PinWrite(&g_ioport_ctrl, TFT_CS_Pin, BSP_IO_LEVEL_HIGH);
 }
 
 void ST7735_WriteByte(uint8_t data){
-    R_IOPORT_PinWrite(&g_ioport_ctrl, BSP_IO_PORT_08_PIN_04, BSP_IO_LEVEL_HIGH);
-    R_IOPORT_PinWrite(&g_ioport_ctrl, BSP_IO_PORT_08_PIN_03, BSP_IO_LEVEL_LOW);
+    R_IOPORT_PinWrite(&g_ioport_ctrl, TFT_DC_Pin, BSP_IO_LEVEL_HIGH);
+    R_IOPORT_PinWrite(&g_ioport_ctrl, TFT_CS_Pin, BSP_IO_LEVEL_LOW);
 
     R_SCI_SPI_Write(&g_spi0_ctrl, &data, 1, SPI_BIT_WIDTH_8_BITS);
 
@@ -87,12 +87,12 @@ void ST7735_WriteByte(uint8_t data){
 	spi_transfer_complete_flag = false;  // 清除标志
 	timeout_us = 1000;
 
-    R_IOPORT_PinWrite(&g_ioport_ctrl, BSP_IO_PORT_08_PIN_03, BSP_IO_LEVEL_HIGH);
+    R_IOPORT_PinWrite(&g_ioport_ctrl, TFT_CS_Pin, BSP_IO_LEVEL_HIGH);
 }
 
 void ST7735_WriteData(uint8_t *data, size_t data_size){
-    R_IOPORT_PinWrite(&g_ioport_ctrl, BSP_IO_PORT_08_PIN_04, BSP_IO_LEVEL_HIGH);
-    R_IOPORT_PinWrite(&g_ioport_ctrl, BSP_IO_PORT_08_PIN_03, BSP_IO_LEVEL_LOW);
+    R_IOPORT_PinWrite(&g_ioport_ctrl, TFT_DC_Pin, BSP_IO_LEVEL_HIGH);
+    R_IOPORT_PinWrite(&g_ioport_ctrl, TFT_CS_Pin, BSP_IO_LEVEL_LOW);
 
     R_SCI_SPI_Write(&g_spi0_ctrl, data, data_size, SPI_BIT_WIDTH_8_BITS);
 
@@ -114,7 +114,7 @@ void ST7735_WriteData(uint8_t *data, size_t data_size){
 	spi_transfer_complete_flag = false;  // 清除标志
 	timeout_us = SPI_DATA_TIMEOUT_us;
 
-	R_IOPORT_PinWrite(&g_ioport_ctrl, BSP_IO_PORT_08_PIN_03, BSP_IO_LEVEL_HIGH);
+	R_IOPORT_PinWrite(&g_ioport_ctrl, TFT_CS_Pin, BSP_IO_LEVEL_HIGH);
 }
 
 /**

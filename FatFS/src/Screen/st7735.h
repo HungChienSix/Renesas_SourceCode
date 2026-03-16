@@ -71,8 +71,8 @@
 #define ST7735_MADCTL_MV  0x20
 
 // SPI发送超时 (10 MHz时钟)
-#define SPI_CMD_TIMEOUT_us		5000000
-#define SPI_DATA_TIMEOUT_us		5000000  
+#define SPI_CMD_TIMEOUT_us		10000
+#define SPI_DATA_TIMEOUT_us		100000  
 
 // 分区刷新宏
 #define ST7735_PARTIAL_REFRESH
@@ -80,8 +80,8 @@
 typedef uint16_t SCREEN_Pixel_t;
 
 typedef enum SCREEN_Mode{
-	SCREEN_Nor = 0x00,// 正常显示,会被遮挡
-	SCREEN_Xor = 0xFF,// 异或显示,遇到遮挡会反色
+	SCREEN_Nor = 0x00,  // 正常绘制：新颜色覆盖旧颜色
+	SCREEN_Xor ,		// 异或模式：相同颜色则反色
 } SCREEN_Mode_t;
 
 /**

@@ -4,8 +4,8 @@
 /* V1.3 Screen : 优化代码结构，为后续加入摇杆留出接口 */
 /* V1.4 Screen : 修复内存安全问题 */
 
-#ifndef __SCREEN_H
-#define __SCREEN_H
+#ifndef __SCREEN_H__
+#define __SCREEN_H__
 
 #include "st7735.h"
 #include "fonts.h"
@@ -53,7 +53,7 @@ SCREEN_Event_t SCREEN_DrawQuarSector(int16_t x0, int16_t y0, uint16_t r, uint8_t
 SCREEN_Event_t SCREEN_DrawChar(int16_t x0, int16_t y0, char ch, const struFont_t *font, SCREEN_Pixel_t Pixel_Set, SCREEN_Mode_t type);
 SCREEN_Event_t SCREEN_DrawString(int16_t x0, int16_t y0, const char *str, const struFont_t *font, SCREEN_Pixel_t Pixel_Set, SCREEN_Mode_t type);
 SCREEN_Event_t SCREEN_DrawUTFChar(int16_t x0, int16_t y0, const char *utf8_char, const struFont_UTF_t *hz_font, SCREEN_Pixel_t Pixel_Set, SCREEN_Mode_t type);
-SCREEN_Event_t SCREEN_DrawUTF8String(int16_t x0, int16_t y0, const char *utf8_str, const struFont_t *ascii_font, const struFont_UTF_t *hz_font, SCREEN_Pixel_t Pixel_Set, SCREEN_Mode_t type);
+SCREEN_Event_t SCREEN_DrawUTFString(int16_t x0, int16_t y0, const char *utf8_str, const struFont_t *ascii_font, const struFont_UTF_t *hz_font, SCREEN_Pixel_t Pixel_Set, SCREEN_Mode_t type);
 SCREEN_Event_t SCREEN_DrawImage(int16_t x0, int16_t y0, uint16_t width, uint16_t height, const uint8_t *image, SCREEN_Pixel_t Pixel_Set, SCREEN_Mode_t type);
 SCREEN_Event_t SCREEN_DrawRGBImage(int16_t x0, int16_t y0, uint16_t width, uint16_t height,
 								const uint8_t *image, SCREEN_Mode_t type);
