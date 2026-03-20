@@ -613,9 +613,6 @@
       <configSetting altId="p114.gpio_mode.gpio_mode_peripheral" configurationId="p114.gpio_mode"/>
       <configSetting altId="p115.ssi0.ssitxd" configurationId="p115"/>
       <configSetting altId="p115.gpio_mode.gpio_mode_peripheral" configurationId="p115.gpio_mode"/>
-      <configSetting altId="p200.input" configurationId="p200"/>
-      <configSetting altId="p200.gpio_mode.gpio_mode_in" configurationId="p200.gpio_mode"/>
-      <configSetting altId="p200.gpio_pupd.gpio_pupd_ip_up" configurationId="p200.gpio_pupd"/>
       <configSetting altId="p202.sci2.sck" configurationId="p202"/>
       <configSetting altId="p202.gpio_mode.gpio_mode_peripheral" configurationId="p202.gpio_mode"/>
       <configSetting altId="p214.output.low" configurationId="p214"/>
@@ -629,8 +626,6 @@
       <configSetting altId="p311.input" configurationId="p311"/>
       <configSetting altId="p311.gpio_mode.gpio_mode_in" configurationId="p311.gpio_mode"/>
       <configSetting altId="p311.gpio_pupd.gpio_pupd_ip_up" configurationId="p311.gpio_pupd"/>
-      <configSetting altId="p312.output.low" configurationId="p312"/>
-      <configSetting altId="p312.gpio_mode.gpio_mode_out.low" configurationId="p312.gpio_mode"/>
       <configSetting altId="p411.sdhi0.dat0" configurationId="p411"/>
       <configSetting altId="p411.gpio_mode.gpio_mode_peripheral" configurationId="p411.gpio_mode"/>
       <configSetting altId="p412.sdhi0.cmd" configurationId="p412"/>
@@ -649,9 +644,14 @@
       <configSetting altId="p804.gpio_mode.gpio_mode_out.low" configurationId="p804.gpio_mode"/>
       <configSetting altId="p900.output.low" configurationId="p900"/>
       <configSetting altId="p900.gpio_mode.gpio_mode_out.low" configurationId="p900.gpio_mode"/>
+      <configSetting altId="p901.output.low" configurationId="p901"/>
+      <configSetting altId="p901.gpio_mode.gpio_mode_out.low" configurationId="p901.gpio_mode"/>
       <configSetting altId="p907.input" configurationId="p907"/>
       <configSetting altId="p907.gpio_mode.gpio_mode_in" configurationId="p907.gpio_mode"/>
       <configSetting altId="p907.gpio_pupd.gpio_pupd_ip_up" configurationId="p907.gpio_pupd"/>
+      <configSetting altId="p908.input" configurationId="p908"/>
+      <configSetting altId="p908.gpio_mode.gpio_mode_in" configurationId="p908.gpio_mode"/>
+      <configSetting altId="p908.gpio_pupd.gpio_pupd_ip_up" configurationId="p908.gpio_pupd"/>
       <configSetting altId="sci2.mode.spi.a" configurationId="sci2.mode"/>
       <configSetting altId="sci2.pairing.a" configurationId="sci2.pairing"/>
       <configSetting altId="sci2.rxd.p301" configurationId="sci2.rxd"/>

@@ -10,7 +10,7 @@ extern sys_info g_sys_info ;
 static struUI_Tooltip_t tooltip_splash = {
     .location = {64, 64},
     .frame = {110, 36},
-    .text = "Music Player",
+    .text = "Press any key",
     .ascii_font = &Font_8x16_consolas,
     .hz_font = &Font_UTF_16x12_YuMincho,
     .color = {SCREEN_BLUE, SCREEN_GREEN}  // 背景颜色, 文本颜色
@@ -24,117 +24,142 @@ void Page0_Welcome(void)
 }
 
 /**
- * @brief 主界面(显示歌曲的列表)
+ * @brief 绘制多行UTF文本（自动换行）
+ * @param x 起始x坐标
+ * @param y 起始y坐标
+ * @param text 要显示的文本
+ * @param ascii_font ASCII字体
+ * @param hz_font 中文UTF字体
+ * @param color 颜色
+ * @param max_width 每行最大宽度（像素）
+ * @param line_height 行高
+ */
+static void DrawMultiLineText(int16_t x, int16_t y, const char *text,
+                               const struFont_t *ascii_font,
+                               const struFont_UTF_t *hz_font,
+                               SCREEN_Pixel_t color,
+                               uint8_t max_width, uint8_t line_height)
+{
+    char line_buffer[64];
+    uint8_t line_index = 0;
+    int16_t current_y = y;
+    uint16_t line_width = 0;  // 当前行已用宽度
+    uint8_t i = 0;
+
+    while (text[i] != '\0')
+    {
+        // 计算当前字符的宽度
+        uint8_t char_width = 8;  // ASCII字符默认8像素
+
+        // UTF-8中文判断：0xE0以上为3字节中文（GBK/GB2312兼容）
+        if ((text[i] & 0x80) != 0)
+        {
+            char_width = 16;  // UTF字符16像素
+
+            // 复制UTF字符（3字节）
+            if (line_index + 3 < sizeof(line_buffer))
+            {
+                line_buffer[line_index++] = text[i++];
+                line_buffer[line_index++] = text[i++];
+                line_buffer[line_index++] = text[i++];
+            }
+        }
+        else
+        {
+            // ASCII字符（1字节）
+            if (line_index + 1 < sizeof(line_buffer))
+            {
+                line_buffer[line_index++] = text[i++];
+            }
+        }
+
+        line_width += char_width;
+
+        // 超过最大宽度或遇到换行符，则输出一行
+        if (line_width > max_width || (text[i] == '\n' && text[i] != '\0'))
+        {
+            // 如果是换行符，跳过它
+            if (text[i] == '\n')
+            {
+                i++;
+            }
+
+            line_buffer[line_index] = '\0';
+            SCREEN_DrawUTFString(x, current_y, line_buffer, ascii_font, hz_font, color, SCREEN_Nor);
+            current_y += line_height;
+            line_index = 0;
+            line_width = 0;
+        }
+    }
+
+    // 输出最后一行
+    if (line_index > 0)
+    {
+        line_buffer[line_index] = '\0';
+        SCREEN_DrawUTFString(x, current_y, line_buffer, ascii_font, hz_font, color, SCREEN_Nor);
+    }
+}
+
+/**
+ * @brief 主界面(显示上一首、当前、下一首歌曲)
  */
 void Page1_Main(void)
 {
-    uint8_t page_id = 0;
-
     SCREEN_FillScreen(SCREEN_BLACK);
 
-    // 获取播放列表头部和总数
-    struAudio_t *playlist_head = I2S_GetPlaylistHead();
-    uint16_t total_songs = I2S_GetPlaylistCount();
-
-    if (playlist_head == NULL || total_songs == 0)
+    if (g_sys_info.selected_audio != NULL)
     {
-        // 没有歌曲时显示提示
-        SCREEN_DrawString(32, 60, "No Songs", &Font_8x12_consolas, SCREEN_WHITE, SCREEN_Nor);
+        struAudio_t *prev = g_sys_info.selected_audio->prev;
+        struAudio_t *curr = g_sys_info.selected_audio;
+        struAudio_t *next = g_sys_info.selected_audio->next;
+
+        // 顶部进度条区域
+        // 计算当前播放进度
+        uint32_t current_seconds = curr->current_sample / curr->fmt.samplesPerSec;
+        uint32_t total_seconds = curr->total_samples / curr->fmt.samplesPerSec;
+        uint8_t current_min = current_seconds / 60;
+        uint8_t current_sec = current_seconds % 60;
+        uint8_t total_min = total_seconds / 60;
+        uint8_t total_sec = total_seconds % 60;
+
+        // 绘制进度条
+        uint8_t progress_percent = (uint8_t)((curr->current_sample / curr->total_samples) * 100);
+        struUI_ProgressBar_t progress_bar = {
+            .location = {64, 8},      // 中心坐标 (128/2=64, 8)
+            .frame = {120, 6},         // 宽度120, 高度6
+            .color = {SCREEN_WHITE, SCREEN_YELLOW},  // 边框白色, 填充黄色
+            .progress = progress_percent
+        };
+        SCREEN_DrawProgressBar(&progress_bar);
+
+        // 显示当前时间 / 总时间
+        char time_text[12];
+        snprintf(time_text, sizeof(time_text), "%u:%02u/%u:%02u", current_min, current_sec, total_min, total_sec);
+        SCREEN_DrawString(8, 18, time_text, &Font_8x12_consolas, SCREEN_WHITE, SCREEN_Nor);
+
+        // 绘制大圆角矩形框住三首歌
+        SCREEN_DrawRoundRectHollow(0, 127, 28, 100, 4, SCREEN_YELLOW, SCREEN_Nor);
+
+        // 上部分：上一首歌曲
+        if (prev != NULL)
+        {
+            DrawMultiLineText(4, 36, prev->name, &Font_8x12_consolas, &Font_UTF_16x12_YuMincho, SCREEN_WHITE, 120, 12);
+        }
+
+        // 中部分：当前歌曲 (y=52) - 黄色高亮
+        DrawMultiLineText(4, 52, curr->name, &Font_8x16_consolas, &Font_UTF_16x16_YuMincho, SCREEN_YELLOW, 120, 16);
+
+        // 下部分：下一首歌曲 (y=68)
+        if (next != NULL)
+        {
+            DrawMultiLineText(4, 68, next->name, &Font_8x12_consolas, &Font_UTF_16x12_YuMincho, SCREEN_WHITE, 120, 12);
+        }
     }
     else
     {
-        // 确保有选中的歌曲不为NULL
-        if (g_sys_info.selected_audio == NULL) {
-            g_sys_info.selected_audio = I2S_GetPlaylistHead();
-        }
-
-        // 如果有选中的歌曲，计算其所在页码
-        if (g_sys_info.selected_audio != NULL)
-        {
-            page_id = g_sys_info.selected_audio->id / SONGS_PER_PAGE;
-        }
-
-        uint8_t total_pages = (total_songs + SONGS_PER_PAGE - 1) / SONGS_PER_PAGE;
-
-        // 计算当前页的歌曲索引范围
-        uint16_t page_start_index = page_id * SONGS_PER_PAGE;
-        uint16_t page_end_index = page_start_index + SONGS_PER_PAGE;
-        if (page_end_index > total_songs) {
-            page_end_index = total_songs;
-        }
-
-        // 显示标题和分页信息
-        char page_text[20];
-        snprintf(page_text, sizeof(page_text), "P%d/%d", page_id + 1, total_pages);
-        SCREEN_DrawString(95, 2, page_text, &Font_8x12_consolas, SCREEN_WHITE, SCREEN_Nor);
-
-        // 显示当前页的歌曲
-        uint8_t y_pos = 20;
-        struAudio_t *current_song = playlist_head;
-
-        // 跳转到当前页的起始歌曲
-        for (uint16_t i = 0; i < page_start_index && current_song != NULL; i++) {
-            current_song = current_song->next;
-        }
-
-        // 显示当前页的歌曲（最多4首）
-        for (uint16_t i = page_start_index; i < page_end_index && current_song != NULL; i++)
-        {
-            // 如果是选中的歌曲，用不同颜色显示
-            SCREEN_Pixel_t song_color = (i == g_sys_info.selected_audio->id) ? SCREEN_YELLOW : SCREEN_WHITE;
-
-            // 第一行：绘制序号
-            char num_text[5];
-            snprintf(num_text, sizeof(num_text), "%u.", i + 1);
-            SCREEN_DrawString(4, y_pos, num_text, &Font_8x12_consolas, song_color, SCREEN_Nor);
-
-            // 计算第一行歌曲名可用空间（从x=20开始，第二行从x=122开始留6个字符长度）
-            // 8x12字体：每个字符8像素宽，6个字符=48像素，所以第二行从x=122开始
-            uint8_t first_line_max_chars = (122 - 20) / 8;  // 102像素 / 8 = 12个字符
-
-            // 绘制歌曲名：分为两段（第一段 + 第二段前半部分）
-            uint8_t total_name_len = 0;
-            for (uint8_t j = 0; current_song->name[j] != '\0'; j++) {
-                total_name_len++;
-            }
-
-            // 第一段：x=20-116，最多12个字符
-            uint8_t first_line_len = (total_name_len > 12) ? 12 : total_name_len;
-            char first_line[13];
-            uint8_t i;
-            for (i = 0; i < first_line_len && i < 12; i++) {
-                first_line[i] = current_song->name[i];
-            }
-            first_line[i] = '\0';
-            if (first_line_len > 0) {
-                SCREEN_DrawString(20, y_pos, first_line, &Font_8x12_consolas, song_color, SCREEN_Nor);
-            }
-
-            // 第二段前半部分：x=0-80，最多10个字符
-            if (total_name_len > 12) {
-                char second_part[11];
-                uint8_t second_part_len = (total_name_len - 12 > 10) ? 10 : (total_name_len - 12);
-                for (i = 0; i < second_part_len; i++) {
-                    second_part[i] = current_song->name[12 + i];
-                }
-                second_part[i] = '\0';
-                SCREEN_DrawString(0, y_pos + 12, second_part, &Font_8x12_consolas, song_color, SCREEN_Nor);
-            }
-
-            // 第二行：显示歌曲时长信息（固定在 x=88）
-            y_pos += 12;
-            char duration_text[6];
-            uint32_t total_seconds = current_song->total_samples / current_song->fmt.samplesPerSec;
-            uint8_t minutes = total_seconds / 60;
-            uint8_t seconds = total_seconds % 60;
-            snprintf(duration_text, sizeof(duration_text), "%u:%02u", minutes, seconds);
-            SCREEN_DrawString(88, y_pos, duration_text, &Font_8x12_consolas, SCREEN_WHITE, SCREEN_Nor);
-
-            y_pos += 10;  // 下一首歌曲的起始位置
-
-            current_song = current_song->next;
-        }
-
+        // 没有选中歌曲
+        SCREEN_DrawString(40, 32, "No Songs", &Font_8x12_consolas, SCREEN_WHITE, SCREEN_Nor);
+        SCREEN_DrawString(32, 46, "in Playlist", &Font_8x12_consolas, SCREEN_WHITE, SCREEN_Nor);
     }
 
     SCREEN_RefreshScreen();
@@ -158,12 +183,12 @@ void Page2_SongInfo(void)
         SCREEN_DrawRGBImage(128-32, 16, 32, 32, gImage_RGB_163music, SCREEN_Nor);
 
         // 显示歌曲名
-        SCREEN_DrawString(4, 56, "Name:", &Font_8x12_consolas, SCREEN_GREEN, SCREEN_Nor);
-        SCREEN_DrawString(32, 56, audio->name, &Font_8x12_consolas, SCREEN_WHITE, SCREEN_Nor);
+        // SCREEN_DrawString(4, 56, "Name:", &Font_8x12_consolas, SCREEN_GREEN, SCREEN_Nor);
+        SCREEN_DrawString(0, 56, audio->name, &Font_8x12_consolas, SCREEN_WHITE, SCREEN_Nor);
 
         // 显示文件名
-        SCREEN_DrawString(4, 70, "File:", &Font_8x12_consolas, SCREEN_GREEN, SCREEN_Nor);
-        SCREEN_DrawString(32, 70, audio->filename, &Font_8x12_consolas, SCREEN_WHITE, SCREEN_Nor);
+        // SCREEN_DrawString(4, 70, "File:", &Font_8x12_consolas, SCREEN_GREEN, SCREEN_Nor);
+        SCREEN_DrawString(0, 70, audio->filename, &Font_8x12_consolas, SCREEN_WHITE, SCREEN_Nor);
 
         // 计算时长
         uint32_t total_seconds = audio->total_samples / audio->fmt.samplesPerSec;
@@ -173,33 +198,33 @@ void Page2_SongInfo(void)
         snprintf(duration_text, sizeof(duration_text), "%u:%02u", minutes, seconds);
 
         // 显示时长
-        SCREEN_DrawString(4, 84, "Time:", &Font_8x12_consolas, SCREEN_GREEN, SCREEN_Nor);
-        SCREEN_DrawString(32, 84, duration_text, &Font_8x12_consolas, SCREEN_WHITE, SCREEN_Nor);
+        // SCREEN_DrawString(4, 84, "Time:", &Font_8x12_consolas, SCREEN_GREEN, SCREEN_Nor);
+        SCREEN_DrawString(0, 84, duration_text, &Font_8x12_consolas, SCREEN_WHITE, SCREEN_Nor);
 
         // 显示采样率
         char sample_rate_text[12];
         snprintf(sample_rate_text, sizeof(sample_rate_text), "%luHz", audio->fmt.samplesPerSec);
-        SCREEN_DrawString(4, 98, "Rate:", &Font_8x12_consolas, SCREEN_GREEN, SCREEN_Nor);
-        SCREEN_DrawString(32, 98, sample_rate_text, &Font_8x12_consolas, SCREEN_WHITE, SCREEN_Nor);
+        // SCREEN_DrawString(4, 98, "Rate:", &Font_8x12_consolas, SCREEN_GREEN, SCREEN_Nor);
+        SCREEN_DrawString(0, 98, sample_rate_text, &Font_8x12_consolas, SCREEN_WHITE, SCREEN_Nor);
 
         // 显示位深
         char bits_text[8];
         snprintf(bits_text, sizeof(bits_text), "%ubit", audio->fmt.bits_per_sample);
-        SCREEN_DrawString(80, 84, "Bit:", &Font_8x12_consolas, SCREEN_GREEN, SCREEN_Nor);
-        SCREEN_DrawString(104, 84, bits_text, &Font_8x12_consolas, SCREEN_WHITE, SCREEN_Nor);
+        // SCREEN_DrawString(80, 84, "Bit:", &Font_8x12_consolas, SCREEN_GREEN, SCREEN_Nor);
+        SCREEN_DrawString(80, 84, bits_text, &Font_8x12_consolas, SCREEN_WHITE, SCREEN_Nor);
 
         // 显示声道数
         char channels_text[8];
         snprintf(channels_text, sizeof(channels_text), "%uch", audio->fmt.channels);
-        SCREEN_DrawString(80, 98, "CH:", &Font_8x12_consolas, SCREEN_GREEN, SCREEN_Nor);
-        SCREEN_DrawString(100, 98, channels_text, &Font_8x12_consolas, SCREEN_WHITE, SCREEN_Nor);
+        // SCREEN_DrawString(80, 98, "CH:", &Font_8x12_consolas, SCREEN_GREEN, SCREEN_Nor);
+        SCREEN_DrawString(80, 98, channels_text, &Font_8x12_consolas, SCREEN_WHITE, SCREEN_Nor);
 
         // 显示文件大小
         char size_text[12];
         uint32_t size_kb = audio->file_size / 1024;
         snprintf(size_text, sizeof(size_text), "%luKB", size_kb);
-        SCREEN_DrawString(4, 112, "Size:", &Font_8x12_consolas, SCREEN_GREEN, SCREEN_Nor);
-        SCREEN_DrawString(32, 112, size_text, &Font_8x12_consolas, SCREEN_WHITE, SCREEN_Nor);
+        // SCREEN_DrawString(4, 112, "Size:", &Font_8x12_consolas, SCREEN_GREEN, SCREEN_Nor);
+        SCREEN_DrawString(0, 112, size_text, &Font_8x12_consolas, SCREEN_WHITE, SCREEN_Nor);
     }
     else
     {

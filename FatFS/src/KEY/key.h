@@ -7,12 +7,12 @@
 
 #include "bsp_api.h"
 
-// P200 R1 (input) pull-up
+// P907 R1 (input) pull-up
 // P311 R2 (input) pull-up
-// P907 R3 (input) pull-up
-// P312 L1 (output) initially low
+// P908 R3 (input) pull-up
+// P214 L1 (output) initially low
 // P900 L2 (output) initially low
-// P214 L3 (output) initially low
+// P901 L3 (output) initially low 
 
 #define KEY_DEBOUNCE_TIME   20    // 消抖时间 (ms)
 #define KEY_LONG_PRESS_TIME 800  // 长按判定时间 (ms)

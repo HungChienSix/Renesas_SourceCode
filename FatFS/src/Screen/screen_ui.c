@@ -135,7 +135,7 @@ SCREEN_Event_t SCREEN_DrawProgressBar(struUI_ProgressBar_t *bar){
     SCREEN_Event_t ret;
 
     // 第一步：绘制边框（圆角矩形空心）- 使用白色
-    ret = SCREEN_DrawRoundRectHollow(x0, x1, y0, y1, radius, bar->color[1], SCREEN_Nor);
+    ret = SCREEN_DrawRoundRectHollow(x0, x1, y0, y1, radius, bar->color[0], SCREEN_Nor);
     if(ret != SCREEN_OK){
         return ret;
     }
@@ -147,7 +147,7 @@ SCREEN_Event_t SCREEN_DrawProgressBar(struUI_ProgressBar_t *bar){
         int16_t fill_x1 = x0 + 1 + fill_width;
 
         // 填充区域使用圆角矩形
-        ret = SCREEN_DrawRoundRectSolid(x0 + 1, fill_x1, y0 + 1, y1 - 1, radius - 1, bar->color[2], SCREEN_Nor);
+        ret = SCREEN_DrawRoundRectSolid(x0 + 1, fill_x1, y0 + 1, y1 - 1, radius - 1, bar->color[1], SCREEN_Nor);
         if(ret != SCREEN_OK){
             return ret;
         }

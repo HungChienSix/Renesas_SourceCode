@@ -124,7 +124,7 @@ void hal_entry(void)
                         g_sys_info.selected_audio = g_sys_info.selected_audio->next;
                         I2S_OpenWavFile(&file, g_sys_info.selected_audio);
 
-                        Page1_Main();
+                        // Page1_Main();
                     }
                 }
                 else if(g_sys_info.input.id == 1 && g_sys_info.input.event == KEY_Event_ShortPress){
@@ -133,7 +133,7 @@ void hal_entry(void)
                         g_sys_info.selected_audio = g_sys_info.selected_audio->prev;
                         I2S_OpenWavFile(&file, g_sys_info.selected_audio);
 
-                        Page1_Main();
+                        // Page1_Main();
                     }
                 }
                 else if(g_sys_info.input.id == 2 && g_sys_info.input.event == KEY_Event_ShortPress){
@@ -143,17 +143,67 @@ void hal_entry(void)
                         g_sys_info.is_play = false;
                     }
                 }
+                else if(g_sys_info.input.id == 3 && g_sys_info.input.event == KEY_Event_ShortPress){
+                    // 按键3：快进5秒
+                    uint32_t skip_samples = g_sys_info.selected_audio->fmt.samplesPerSec * 5;
+                    if(g_sys_info.selected_audio->current_sample + skip_samples < g_sys_info.selected_audio->total_samples){
+                        g_sys_info.selected_audio->current_sample += skip_samples;
+                    }else{
+                        g_sys_info.selected_audio->current_sample = g_sys_info.selected_audio->total_samples;
+                    }
+                    // 更新文件指针位置
+                    uint32_t new_offset = g_sys_info.selected_audio->data_offset +
+                                       g_sys_info.selected_audio->current_sample * g_sys_info.selected_audio->bytes_per_sample;
+                    f_lseek(&file, new_offset);
+                    // 重置缓冲区
+                    g_sys_info.selected_audio->play_status = 0;
+                    g_sys_info.selected_audio->buffer_index = 0;
+                }
+                else if(g_sys_info.input.id == 4 && g_sys_info.input.event == KEY_Event_ShortPress){
+                    // 按键4：回退5秒
+                    uint32_t skip_samples = g_sys_info.selected_audio->fmt.samplesPerSec * 5;
+                    if(g_sys_info.selected_audio->current_sample > skip_samples){
+                        g_sys_info.selected_audio->current_sample -= skip_samples;
+                    }else{
+                        g_sys_info.selected_audio->current_sample = 0;
+                    }
+                    // 更新文件指针位置
+                    uint32_t new_offset = g_sys_info.selected_audio->data_offset +
+                                       g_sys_info.selected_audio->current_sample * g_sys_info.selected_audio->bytes_per_sample;
+                    f_lseek(&file, new_offset);
+                    // 重置缓冲区
+                    g_sys_info.selected_audio->play_status = 0;
+                    g_sys_info.selected_audio->buffer_index = 0;
+                }
+                else if(g_sys_info.input.id == 5 && g_sys_info.input.event == KEY_Event_ShortPress){
+                    g_sys_info.page = 2;
+                }
+            }
+
+            //如果在页面二 
+            else if(g_sys_info.page == 2){
+                if(g_sys_info.input.id == 5 && g_sys_info.input.event == KEY_Event_ShortPress){
+                    g_sys_info.page = 1;
+                }
             }
 
             Key_ClearInput();
         }
+        if(g_sys_info.page == 1){
+            Page1_Main();
+        }
+        else if(g_sys_info.page == 2){
+            Page2_SongInfo();
+        }
 
         if(g_sys_info.is_play == true){
             if(I2S_PlayWavFile(&file,g_sys_info.selected_audio) == WAV_Finish){
-                audio->play_status = 0;        // 重置为未播放状态
-                audio->current_sample = 0;     // 重置播放位置
-                audio->buffer_index = 0;       // 重置缓冲区索引
-                g_sys_info.is_play == false;
+                g_sys_info.selected_audio->play_status = 0;        // 重置为未播放状态
+                g_sys_info.selected_audio->current_sample = 0;     // 重置播放位置
+                g_sys_info.selected_audio->buffer_index = 0;       // 重置缓冲区索引
+                // 文件指针移回数据区开头
+                f_lseek(&file, g_sys_info.selected_audio->data_offset);
+                g_sys_info.is_play = false;
             }
         }
         

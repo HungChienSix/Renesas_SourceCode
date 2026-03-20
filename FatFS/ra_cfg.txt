@@ -179,7 +179,7 @@ FSP Configuration
       P113 B1 SSI0_SSILRCK0 - Low - "Peripheral mode" CMOS None "AGT5: AGTEE5; BUS_ASYNCH0: A03; GPT2: GTIOC2A; SCI2: RXD2; SCI2: SCL2; SSI0: SSILRCK0" - IO - - 
       P114 C2 SSI0_SSIRXD0 - Low - "Peripheral mode" CMOS None "AGT5: AGTIO5; BUS_ASYNCH0: A02; GPT2: GTIOC2B; SCI9: CTS9; SSI0: SSIRXD0" - IO - - 
       P115 C1 SSI0_SSITXD0 - Low - "Peripheral mode" CMOS None "BUS_ASYNCH0: A01; GPT4: GTIOC4A; SSI0: SSITXD0" - IO - - 
-      P200 C8 GPIO - - None "Input mode" - "input pull-up" "ICU0: NMI" - IO - - 
+      P200 C8 - - - - Disabled - - "ICU0: NMI" - None - - 
       P201 B8 - - - - Disabled - - "SYSTEM0: MD" - None - - 
       P202 B12 SCI2_SCK2 - Low None "Peripheral mode" CMOS None "AGT3: AGTOB3; BUS_ASYNCH0: BC1; CAN0: CRX0; CTSU0: TS19; ETHERC_MII0: ET0_ERXD2; GPT5: GTIOC5B; ICU0: IRQ03; SCI2: SCK2; SCI9: RXD9; SCI9: SCL9; SDHI0: SD0DAT6; SPI0: MISOA" - IO - - 
       P203 D11 - - - - Disabled - - "AGT3: AGTOA3; BUS_ASYNCH0: A19; CAN0: CTX0; CTSU0: TS18; ETHERC_MII0: ET0_COL; GPT5: GTIOC5A; ICU0: IRQ02; SCI2: CTSRTS2; SCI9: SDA9; SCI9: TXD9; SDHI0: SD0DAT5; SPI0: MOSIA" - None - - 
@@ -206,7 +206,7 @@ FSP Configuration
       P309 B6 - - - - Disabled - - "AGT4: AGTOA4; BUS_ASYNCH0: A14; QSPI0: QIO2; SCI3: RXD3; SCI3: SCL3" - None - - 
       P310 A6 - - - - Disabled - - "AGT1: AGTEE1; BUS_ASYNCH0: A15; QSPI0: QIO3; SCI3: SDA3; SCI3: TXD3" - None - - 
       P311 D6 GPIO - - - "Input mode" - "input pull-up" "AGT1: AGTOB1; BUS_ASYNCH0: CS2; SCI3: SCK3" - IO - - 
-      P312 C7 GPIO - Low - "Output mode (Initial Low)" CMOS - "AGT1: AGTOA1; BUS_ASYNCH0: CS3; SCI3: CTSRTS3" - IO - - 
+      P312 C7 - - - - Disabled - - "AGT1: AGTOA1; BUS_ASYNCH0: CS3; SCI3: CTSRTS3" - None - - 
       P313 A12 - - - - Disabled - - "BUS_ASYNCH0: A20; ETHERC_MII0: ET0_ERXD3; SDHI0: SD0DAT7" - None - - 
       P314 C11 - - - - Disabled - - "ADC0: ADTRG0; BUS_ASYNCH0: A21" - None - - 
       P315 B11 - - - - Disabled - - "BUS_ASYNCH0: A22; SCI4: RXD4; SCI4: SCL4" - None - - 
@@ -271,11 +271,11 @@ FSP Configuration
       P805 R13 - - - - Disabled - - "SCI5: SDA5; SCI5: TXD5" - None - - 
       P806 P12 - - - - Disabled - - "ICU0: IRQ00" - None - - 
       P900 A11 GPIO - Low - "Output mode (Initial Low)" CMOS - "BUS_ASYNCH0: A23; SCI4: SDA4; SCI4: TXD4" - IO - - 
-      P901 C10 - - - - Disabled - - "AGT1: AGTIO1; SCI4: SCK4" - None - - 
+      P901 C10 GPIO - Low - "Output mode (Initial Low)" CMOS - "AGT1: AGTIO1; SCI4: SCK4" - IO - - 
       P905 B7 - - - - Disabled - - "ICU0: IRQ08; USB_FS0: USB_ID" - None - - 
       P906 A7 - - - - Disabled - - "ICU0: IRQ09; USB_FS0: USB_EXICEN" - None - - 
       P907 D7 GPIO - - None "Input mode" - "input pull-up" "ICU0: IRQ10; USB_HS0: USBHS_ID" - IO - - 
-      P908 D8 - - - - Disabled - - "ICU0: IRQ11; USB_HS0: USBHS_EXICEN" - None - - 
+      P908 D8 GPIO - - None "Input mode" - "input pull-up" "ICU0: IRQ11; USB_HS0: USBHS_EXICEN" - IO - - 
       PA00 H4 - - - - Disabled - - "SCI8: SDA8; SCI8: TXD8" - None - - 
       PA01 H2 - - - - Disabled - - "SCI8: SCK8" - None - - 
       PA08 G1 - - - - Disabled - - "ICU0: IRQ06; USB_FS0: USB_OVRCURA" - None - - 
