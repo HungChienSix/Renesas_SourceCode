@@ -198,6 +198,8 @@ void hal_entry(void)
 
         if(g_sys_info.is_play == true){
             if(I2S_PlayWavFile(&file,g_sys_info.selected_audio) == WAV_Finish){
+                // 停止I2S输出，避免残留缓冲区数据产生杂音
+                R_SSI_Stop(&g_i2s0_ctrl);
                 g_sys_info.selected_audio->play_status = 0;        // 重置为未播放状态
                 g_sys_info.selected_audio->current_sample = 0;     // 重置播放位置
                 g_sys_info.selected_audio->buffer_index = 0;       // 重置缓冲区索引

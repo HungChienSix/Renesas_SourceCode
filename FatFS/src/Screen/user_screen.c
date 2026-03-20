@@ -123,11 +123,11 @@ void Page1_Main(void)
         uint8_t total_sec = total_seconds % 60;
 
         // 绘制进度条
-        uint8_t progress_percent = (uint8_t)((curr->current_sample / curr->total_samples) * 100);
+        uint8_t progress_percent = (uint8_t)((curr->current_sample * 100ULL) / curr->total_samples);
         struUI_ProgressBar_t progress_bar = {
             .location = {64, 8},      // 中心坐标 (128/2=64, 8)
             .frame = {120, 6},         // 宽度120, 高度6
-            .color = {SCREEN_WHITE, SCREEN_YELLOW},  // 边框白色, 填充黄色
+            .color = {SCREEN_WHITE, SCREEN_CYAN},  // 边框白色, 填充青色
             .progress = progress_percent
         };
         SCREEN_DrawProgressBar(&progress_bar);
@@ -138,21 +138,21 @@ void Page1_Main(void)
         SCREEN_DrawString(8, 18, time_text, &Font_8x12_consolas, SCREEN_WHITE, SCREEN_Nor);
 
         // 绘制大圆角矩形框住三首歌
-        SCREEN_DrawRoundRectHollow(0, 127, 28, 100, 4, SCREEN_YELLOW, SCREEN_Nor);
+        SCREEN_DrawRoundRectHollow(0, 127, 35, 127, 5, SCREEN_YELLOW, SCREEN_Nor);
 
         // 上部分：上一首歌曲
         if (prev != NULL)
         {
-            DrawMultiLineText(4, 36, prev->name, &Font_8x12_consolas, &Font_UTF_16x12_YuMincho, SCREEN_WHITE, 120, 12);
+            DrawMultiLineText(4, 36, prev->name, &Font_8x16_consolas, &Font_UTF_16x16_YuMincho, SCREEN_WHITE, 120, 12);
         }
 
         // 中部分：当前歌曲 (y=52) - 黄色高亮
-        DrawMultiLineText(4, 52, curr->name, &Font_8x16_consolas, &Font_UTF_16x16_YuMincho, SCREEN_YELLOW, 120, 16);
+        DrawMultiLineText(4, 36+32, curr->name, &Font_8x16_consolas, &Font_UTF_16x16_YuMincho, SCREEN_YELLOW, 120, 16);
 
         // 下部分：下一首歌曲 (y=68)
         if (next != NULL)
         {
-            DrawMultiLineText(4, 68, next->name, &Font_8x12_consolas, &Font_UTF_16x12_YuMincho, SCREEN_WHITE, 120, 12);
+            DrawMultiLineText(4, 36+32+32, next->name, &Font_8x16_consolas, &Font_UTF_16x16_YuMincho, SCREEN_WHITE, 120, 12);
         }
     }
     else
