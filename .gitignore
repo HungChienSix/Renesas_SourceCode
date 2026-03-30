@@ -1,1 +1,16 @@
 .metadata
+
+# 编译产物
+*.elf
+*.elf.in
+*.map
+*.rpd
+*.sbd
+*.srec
+bsp_linker_info.h
+compile_commands.json
+fsp_gen.ld
+memory_regions.ld
+
+# IDE 生成
+.settings/IORegisterSetting.xml
