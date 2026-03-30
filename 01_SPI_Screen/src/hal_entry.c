@@ -102,7 +102,7 @@ void hal_entry(void)
             // printf(">> S2 start\r\n");
 
             // 1. FillScreen: 深蓝色背景
-            SCREEN_FillScreen(SCREEN_COLOR565(10, 10, 40));
+            SCREEN_FillScreen(SCREEN_BLACK);
             // printf(">> S2-1 FillScreen OK\r\n");
 
             // 2. DrawString: 标题

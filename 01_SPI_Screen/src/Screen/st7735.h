@@ -91,7 +91,7 @@ typedef uint16_t SCREEN_Pixel_t;
 #define SPI_DATA_TIMEOUT_us		100000  
 
 // 分区刷新宏
-// #define ST7735_PARTIAL_REFRESH
+#define ST7735_PARTIAL_REFRESH
 
 typedef enum SCREEN_Mode{
 	SCREEN_Nor = 0x00,  // 正常绘制：新颜色覆盖旧颜色
