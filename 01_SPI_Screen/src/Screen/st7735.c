@@ -7,11 +7,37 @@ static uint16_t display_ram[ST7735_HEIGHT][ST7735_WIDTH] = {0x0000};
 void SCREEN_RefreshScreen_Force(void) ;
 
 #ifdef ST7735_PARTIAL_REFRESH
-	/* 行级脏标记：仅记录哪些行被修改 */
+	/* 行级脏标记 */
 	static bool dirty_row[ST7735_HEIGHT] = {false};
-	/* 分批发送缓冲区：每次最多合并 DIRTY_BATCH_ROWS 行，减少 SPI 事务次数 */
-	#define DIRTY_BATCH_ROWS 8
-	static uint8_t batch_buf[ST7735_WIDTH * 2 * DIRTY_BATCH_ROWS];
+	/* 列范围脏标记：每行记录脏列的 [min, max] 范围 */
+	static uint16_t dirty_col_min[ST7735_HEIGHT];
+	static uint16_t dirty_col_max[ST7735_HEIGHT];
+	/* 发送缓冲区：最大单行 128*2 字节 */
+	static uint8_t batch_buf[ST7735_WIDTH * 2];
+
+	/* 标记单列为脏 */
+	static inline void mark_dirty(int16_t y, int16_t x) {
+		if (!dirty_row[y]) {
+			dirty_col_min[y] = x;
+			dirty_col_max[y] = x;
+			dirty_row[y] = true;
+		} else {
+			if (x < dirty_col_min[y]) dirty_col_min[y] = x;
+			if (x > dirty_col_max[y]) dirty_col_max[y] = x;
+		}
+	}
+
+	/* 标记列范围为脏 [x0, x1] */
+	static inline void mark_dirty_range(int16_t y, int16_t x0, int16_t x1) {
+		if (!dirty_row[y]) {
+			dirty_col_min[y] = x0;
+			dirty_col_max[y] = x1;
+			dirty_row[y] = true;
+		} else {
+			if (x0 < dirty_col_min[y]) dirty_col_min[y] = x0;
+			if (x1 > dirty_col_max[y]) dirty_col_max[y] = x1;
+		}
+	}
 #endif
 
 void SCREEN_RefreshScreen_Force(void) ;
@@ -279,7 +305,7 @@ void DrawPixel(int16_t x, int16_t y, SCREEN_Pixel_t Pixel_Set){
 		return ;
 	display_ram[y][x] = Pixel_Set;
 #ifdef ST7735_PARTIAL_REFRESH
-	dirty_row[y] = true;
+	mark_dirty(y, x);
 #endif
 }
 
@@ -304,7 +330,7 @@ void DrawHorLine(int16_t x0, int16_t x1, int16_t y, SCREEN_Pixel_t Pixel_Set, SC
 		if (display_ram[y][x] == val) continue;
 		display_ram[y][x] = val;
 #ifdef ST7735_PARTIAL_REFRESH
-		dirty_row[y] = true;
+		mark_dirty(y, x);
 #endif
 	}
 }
@@ -331,7 +357,7 @@ void DrawVerLine(int16_t x, int16_t y0, int16_t y1, SCREEN_Pixel_t Pixel_Set, SC
 		if (display_ram[y][x] == val) continue;
 		display_ram[y][x] = val;
 #ifdef ST7735_PARTIAL_REFRESH
-		dirty_row[y] = true;
+		mark_dirty(y, x);
 #endif
 	}
 }
@@ -341,20 +367,24 @@ void DrawVerLine(int16_t x, int16_t y0, int16_t y1, SCREEN_Pixel_t Pixel_Set, SC
  */
 void SCREEN_FillScreen(SCREEN_Pixel_t Pixel_Set) {
 #ifdef ST7735_PARTIAL_REFRESH
-	/* 先检测每行是否有像素与新颜色不同，只填充并标记实际变化的行 */
 	for (int16_t y = 0; y < ST7735_HEIGHT; y++) {
-		bool row_changed = false;
-		for (uint16_t x = 0; x < ST7735_WIDTH; x++) {
-			if (display_ram[y][x] != Pixel_Set) {
-				row_changed = true;
-				break;
-			}
+		int16_t c0 = -1;
+		/* 从前向后找第一个不同的像素 */
+		for (int16_t x = 0; x < ST7735_WIDTH; x++) {
+			if (display_ram[y][x] != Pixel_Set) { c0 = x; break; }
 		}
-		if (row_changed) {
-			for (uint16_t x = 0; x < ST7735_WIDTH; x++)
-				display_ram[y][x] = Pixel_Set;
-			dirty_row[y] = true;
+		if (c0 < 0) continue; /* 该行无变化，跳过 */
+
+		/* 从后向前找最后一个不同的像素 */
+		int16_t c1 = c0;
+		for (int16_t x = ST7735_WIDTH - 1; x > c0; x--) {
+			if (display_ram[y][x] != Pixel_Set) { c1 = x; break; }
 		}
+
+		/* 只填充变化的范围 */
+		for (int16_t x = c0; x <= c1; x++)
+			display_ram[y][x] = Pixel_Set;
+		mark_dirty_range(y, c0, c1);
 	}
 #else
 	// RGB565: 高低字节相同时（如0x0000黑、0xFFFF白）可用 memset 加速
@@ -392,7 +422,7 @@ void SCREEN_RefreshScreen_Force(void) {
 }
 
 /**
- * @brief 刷新脏区域标记的屏幕（混合策略：少量脏行逐行精确刷新，大量脏行走全屏刷新）
+ * @brief 刷新脏区域标记的屏幕（列范围级：每行只刷新脏列范围）
  * @note 时间测量单位：毫秒(ms)
  */
 uint32_t SCREEN_RefreshScreen(void) {
@@ -400,40 +430,26 @@ uint32_t SCREEN_RefreshScreen(void) {
 	uint32_t start_time = SysTime_Get();
 
 #ifdef ST7735_PARTIAL_REFRESH
-	/* 扫描脏行，合并连续脏行为一个地址窗口，分批发送 */
-	int16_t row = 0;
-	while (row < ST7735_HEIGHT) {
-		/* 跳过干净行 */
-		if (!dirty_row[row]) { row++; continue; }
+	/* 逐行扫描脏行，按列范围精确刷新 */
+	for (int16_t row = 0; row < ST7735_HEIGHT; row++) {
+		if (!dirty_row[row]) continue;
 
-		/* 找到连续脏行的范围 [grp_start, grp_end] */
-		int16_t grp_start = row;
-		int16_t grp_end   = row;
-		while (grp_end + 1 < ST7735_HEIGHT && dirty_row[grp_end + 1])
-			grp_end++;
+		uint8_t c0 = dirty_col_min[row];
+		uint8_t c1 = dirty_col_max[row];
 
-		/* 一次地址窗口覆盖整个脏行组 */
-		ST7735_SetAddressWindow(0, grp_start, ST7735_WIDTH - 1, grp_end);
+		/* 设置地址窗口为该行的脏列范围 */
+		ST7735_SetAddressWindow(c0, row, c1, row);
 		ST7735_WriteCmd(ST7735_RAMWR);
 
-		/* 分批发送像素数据，每次最多 DIRTY_BATCH_ROWS 行 */
-		int16_t r = grp_start;
-		while (r <= grp_end) {
-			int16_t batch_end = r + DIRTY_BATCH_ROWS - 1;
-			if (batch_end > grp_end) batch_end = grp_end;
-
-			int buf_idx = 0;
-			for (int16_t h = r; h <= batch_end; h++) {
-				for (uint16_t w = 0; w < ST7735_WIDTH; w++) {
-					batch_buf[buf_idx++] = (uint8_t)(display_ram[h][w] >> 8);
-					batch_buf[buf_idx++] = (uint8_t)(display_ram[h][w] & 0xFF);
-				}
-				dirty_row[h] = false;
-			}
-			ST7735_WriteData(batch_buf, buf_idx);
-			r = batch_end + 1;
+		/* 准备并发送像素数据 */
+		int buf_idx = 0;
+		for (uint16_t w = c0; w <= c1; w++) {
+			batch_buf[buf_idx++] = (uint8_t)(display_ram[row][w] >> 8);
+			batch_buf[buf_idx++] = (uint8_t)(display_ram[row][w] & 0xFF);
 		}
-		row = grp_end + 1;
+		ST7735_WriteData(batch_buf, buf_idx);
+
+		dirty_row[row] = false;
 	}
 #else
 	SCREEN_RefreshScreen_Force();
