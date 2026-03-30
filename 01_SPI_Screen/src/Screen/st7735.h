@@ -91,7 +91,7 @@ typedef uint16_t SCREEN_Pixel_t;
 #define SPI_DATA_TIMEOUT_us		100000  
 
 // 分区刷新宏
-#define ST7735_PARTIAL_REFRESH
+// #define ST7735_PARTIAL_REFRESH
 
 typedef enum SCREEN_Mode{
 	SCREEN_Nor = 0x00,  // 正常绘制：新颜色覆盖旧颜色
@@ -105,10 +105,6 @@ uint32_t        SCREEN_RefreshScreen(void);
 SCREEN_Pixel_t  ReadPixel(int16_t x, int16_t y);
 void            DrawPixel(int16_t x, int16_t y, SCREEN_Pixel_t Pixel_Set);
 void            DrawHorLine(int16_t x0, int16_t x1, int16_t y, SCREEN_Pixel_t Pixel_Set, SCREEN_Mode_t type);
-void            DrawVerLine(int16_t x, int16_t y1, int16_t y2, SCREEN_Pixel_t Pixel_Set, SCREEN_Mode_t type);
-
-uint32_t        SCREEN_GetRefreshTime();
-uint32_t        SCREEN_GetRefreshIntervalTime();
-float           SCREEN_GetFPS();
+void            DrawVerLine(int16_t x, int16_t y0, int16_t y1, SCREEN_Pixel_t Pixel_Set, SCREEN_Mode_t type);
 
 #endif

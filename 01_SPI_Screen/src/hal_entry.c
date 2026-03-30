@@ -1,7 +1,7 @@
 #include "hal_data.h"
 #include ".\UART_debug\uart_debug.h"
 #include ".\Screen\screen_ui.h"
-#include "sys_time/sys_time.h"
+#include ".\sys_time\sys_time.h"
 
 #if (1 == BSP_MULTICORE_PROJECT) && BSP_TZ_SECURE_BUILD
 bsp_ipc_semaphore_handle_t g_core_start_semaphore =
@@ -26,27 +26,150 @@ void hal_entry(void)
 
     while(1){
         if(screen_num == 0) {
-            // === 界面1：绿色主题 ===
+            // === 界面1：基础图形 + UI组件测试 ===
+            // 1. FillScreen: 黑色背景
             SCREEN_FillScreen(SCREEN_BLACK);
-            SCREEN_DrawRectSolid(10, 118, 10, 118, SCREEN_GREEN, SCREEN_Nor);
-            SCREEN_DrawUTFString(20, 30, "界面1", &Font_8x16_consolas, &Font_UTF_16x12_YuMincho, SCREEN_GREEN, SCREEN_Nor);
-            SCREEN_DrawUTFString(15, 60, "绿色", &Font_8x16_consolas, &Font_UTF_16x12_YuMincho, SCREEN_GREEN, SCREEN_Nor);
-            SCREEN_DrawRGBImage(48, 48, 32, 32, &gImage_RGB_163music, SCREEN_Nor);
-            // 零散图形
-            SCREEN_DrawRectSolid(5, 20, 5, 10, SCREEN_CYAN, SCREEN_Nor);
-            SCREEN_DrawRectSolid(108, 118, 5, 10, SCREEN_CYAN, SCREEN_Nor);
-            SCREEN_DrawRectHollow(25, 103, 18, 22, SCREEN_YELLOW, SCREEN_Nor);
-            SCREEN_DrawQuarArc(64, 30, 8, 0x0F, SCREEN_MAGENTA, SCREEN_Nor);
-            SCREEN_DrawUTFString(5, 100, "A", &Font_8x16_consolas, &Font_UTF_16x12_YuMincho, 0x8410, SCREEN_Nor);
-            SCREEN_DrawUTFString(110, 100, "B", &Font_8x16_consolas, &Font_UTF_16x12_YuMincho, 0x8410, SCREEN_Nor);
+
+            // 2. DrawString: 标题
+            SCREEN_DrawString(30, 2, "Screen 1",
+                &Font_8x12_consolas, SCREEN_YELLOW, SCREEN_Nor);
+
+            // 3. DrawLine: 灰色分隔线
+            SCREEN_DrawLine(2, 125, 14, 14,
+                SCREEN_RED, SCREEN_Nor);
+
+            // 4. DrawPixel: 像素点 (红绿黄)
+            SCREEN_DrawPixel(3,  19, SCREEN_RED,   SCREEN_Nor);
+            SCREEN_DrawPixel(6,  19, SCREEN_GREEN, SCREEN_Nor);
+            SCREEN_DrawPixel(9,  19, SCREEN_YELLOW,  SCREEN_Nor);
+
+            // 5. DrawChar: 单字符
+            SCREEN_DrawChar(16, 17, 'A',
+                &Font_8x12_consolas, SCREEN_GREEN, SCREEN_Nor);
+
+            // 6. DrawRectSolid: 实心矩形
+            SCREEN_DrawRectSolid(30, 60, 18, 38,
+                SCREEN_RED, SCREEN_Nor);
+
+            // 7. DrawRectHollow: 空心矩形
+            SCREEN_DrawRectHollow(65, 95, 18, 38,
+                SCREEN_GREEN, SCREEN_Nor);
+
+            // 8. DrawQuarArc: 四段圆弧组成圆形
+            SCREEN_DrawQuarArc(112, 28, 10,
+                SCREEN_Quarter1 | SCREEN_Quarter2
+                | SCREEN_Quarter3 | SCREEN_Quarter4,
+                SCREEN_YELLOW, SCREEN_Nor);
+
+            // 9. DrawHorLine: 水平线
+            DrawHorLine(3, 55, 44, SCREEN_RED, SCREEN_Nor);
+
+            // 10. DrawVerLine: 垂直线
+            DrawVerLine(60, 44, 68, SCREEN_GREEN, SCREEN_Nor);
+
+            // 11. DrawLine: 对角线 (正常模式)
+            SCREEN_DrawLine(66, 100, 48, 68,
+                SCREEN_YELLOW, SCREEN_Nor);
+
+            // 12. DrawLine: 对角线 (XOR模式, 与上一条叠加变黑)
+            SCREEN_DrawLine(68, 98, 50, 66,
+                SCREEN_YELLOW, SCREEN_Xor);
+
+            // 13. DrawButton: 按钮组件
+            struUI_Button_t btn = {
+                .location = {25, 88},
+                .frame = {30, 14, 3},
+                .label = "OK",
+                .ascii_font = (struFont_t *)&Font_8x12_consolas,
+                .hz_font = NULL,
+                .color = {SCREEN_GREEN, SCREEN_BLACK, SCREEN_YELLOW},
+                .state = 0x00
+            };
+            SCREEN_DrawButton(&btn);
+
+            // 14. DrawProgressBar: 进度条
+            struUI_ProgressBar_t bar = {
+                .location = {90, 88},
+                .frame = {40, 8},
+                .color = {SCREEN_RED, SCREEN_GREEN},
+                .progress = 75
+            };
+            SCREEN_DrawProgressBar(&bar);
+
             screen_num = 1;
         } else {
-            // === 界面2：红色主题 ===
-            SCREEN_FillScreen(SCREEN_BLACK);
-            SCREEN_DrawRectSolid(10, 118, 10, 118, SCREEN_RED, SCREEN_Nor);
-            SCREEN_DrawUTFString(20, 30, "界面2", &Font_8x16_consolas, &Font_UTF_16x12_YuMincho, SCREEN_RED, SCREEN_Nor);
-            SCREEN_DrawUTFString(15, 60, "红色", &Font_8x16_consolas, &Font_UTF_16x12_YuMincho, SCREEN_RED, SCREEN_Nor);
-            SCREEN_DrawRGBImage(48, 48, 32, 32, &gImage_RGB_kugou, SCREEN_Nor);
+            // === 界面2：进阶图形 + UTF + 图片测试 ===
+            // printf(">> S2 start\r\n");
+
+            // 1. FillScreen: 深蓝色背景
+            SCREEN_FillScreen(SCREEN_COLOR565(10, 10, 40));
+            // printf(">> S2-1 FillScreen OK\r\n");
+
+            // 2. DrawString: 标题
+            SCREEN_DrawString(30, 2, "Screen 2",
+                &Font_8x12_consolas, SCREEN_YELLOW, SCREEN_Nor);
+            // printf(">> S2-2 DrawString OK\r\n");
+
+            // 3. DrawLine: 灰色分隔线
+            SCREEN_DrawLine(2, 125, 14, 14,
+                SCREEN_RED, SCREEN_Nor);
+            // printf(">> S2-3 DrawLine OK\r\n");
+
+            // 4. DrawRoundRectSolid: 实心圆角矩形
+            SCREEN_DrawRoundRectSolid(3, 55, 18, 42, 6,
+                SCREEN_RED, SCREEN_Nor);
+            // printf(">> S2-4 RoundRectSolid OK\r\n");
+
+            // 5. DrawRoundRectHollow: 空心圆角矩形
+            SCREEN_DrawRoundRectHollow(68, 122, 18, 42, 6,
+                SCREEN_GREEN, SCREEN_Nor);
+            // printf(">> S2-5 RoundRectHollow OK\r\n");
+
+            // 6. DrawQuarSector: 扇形-右半圆
+            SCREEN_DrawQuarSector(30, 59, 14,
+                SCREEN_Quarter1 | SCREEN_Quarter4,
+                SCREEN_YELLOW, SCREEN_Nor);
+            // printf(">> S2-6 Sector1 OK\r\n");
+
+            // 7. DrawQuarSector: 扇形-左半圆
+            SCREEN_DrawQuarSector(100, 59, 14,
+                SCREEN_Quarter2 | SCREEN_Quarter3,
+                SCREEN_GREEN, SCREEN_Nor);
+            // printf(">> S2-7 Sector2 OK\r\n");
+
+            // 8. DrawUTFChar: 单个中文字符
+            SCREEN_DrawUTFChar(55, 48, "\xe6\xb5\x8b",
+                &Font_UTF_16x12_YuMincho, SCREEN_YELLOW, SCREEN_Nor);
+            // printf(">> S2-8 UTFChar OK\r\n");
+
+            // 9. DrawImage: 单色图片 (苹果 32x32)
+            SCREEN_DrawImage(5, 75, 32, 32,
+                gImage_apple, SCREEN_GREEN, SCREEN_Nor);
+            // printf(">> S2-9 DrawImage OK\r\n");
+
+            // 10. DrawRGBImage: RGB图片 (32x32)
+            SCREEN_DrawRGBImage(42, 75, 32, 32,
+                gImage_RGB_163music, SCREEN_Nor);
+            // printf(">> S2-10 RGBImage OK\r\n");
+
+            // 11. DrawUTFString: 中文字符串
+            SCREEN_DrawUTFString(5, 110, "\xe6\xb5\x8b\xe8\xaf\x95\xe5\xae\x8c\xe6\x88\x90",
+                &Font_8x12_consolas, &Font_UTF_16x12_YuMincho,
+                SCREEN_YELLOW, SCREEN_Nor);
+            // printf(">> S2-11 UTFString OK\r\n");
+
+            // 12. DrawTooltip: 提示框
+            struUI_Tooltip_t tip = {
+                .location = {95, 118},
+                .frame = {48, 12},
+                .text = "Pass!",
+                .ascii_font = (struFont_t *)&Font_8x12_consolas,
+                .hz_font = NULL,
+                .color = {SCREEN_RED, SCREEN_YELLOW}
+            };
+            SCREEN_DrawTooltip(&tip);
+            // printf(">> S2-12 Tooltip OK\r\n");
+
             screen_num = 0;
         }
 

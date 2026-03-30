@@ -4,8 +4,8 @@
 /* V1.3 Screen : 优化代码结构，为后续加入摇杆留出接口 */
 /* V1.4 Screen : 修复内存安全问题 */
 
-#ifndef __SCREEN_H__
-#define __SCREEN_H__
+#ifndef SCREEN_H
+#define SCREEN_H
 
 #include "st7735.h"
 #include "fonts.h"

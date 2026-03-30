@@ -407,9 +407,11 @@ SCREEN_Event_t SCREEN_DrawQuarSector(int16_t x0, int16_t y0, uint16_t r, uint8_t
     int16_t min_x[ST7735_HEIGHT];
     int16_t max_x[ST7735_HEIGHT];
 
-    // 初始化数组 - 使用memset确保所有元素都被正确初始化
-    memset(min_x, ST7735_WIDTH, sizeof(min_x));
-    memset(max_x, -1, sizeof(max_x));
+    // 初始化数组 - memset不能正确设置int16_t数组的非字节值，需使用循环
+    for(int i = 0; i < ST7735_HEIGHT; i++) {
+        min_x[i] = ST7735_WIDTH;
+        max_x[i] = -1;
+    }
     
     // 扫描圆弧边界
     while(x <= y) {
