@@ -59,6 +59,7 @@ SCREEN_Event_t SCREEN_DrawString(int16_t x0, int16_t y0, const char *str, const 
 SCREEN_Event_t SCREEN_DrawUTFChar(int16_t x0, int16_t y0, const char *utf8_char, const struFont_UTF_t *hz_font, SCREEN_Pixel_t Pixel_Set, SCREEN_Mode_t type);
 SCREEN_Event_t SCREEN_DrawUTFString(int16_t x0, int16_t y0, const char *utf8_str, const struFont_t *ascii_font, const struFont_UTF_t *hz_font, SCREEN_Pixel_t Pixel_Set, SCREEN_Mode_t type);
 SCREEN_Event_t SCREEN_DrawImage(int16_t x0, int16_t y0, uint16_t width, uint16_t height, const uint8_t *image, SCREEN_Pixel_t Pixel_Set, SCREEN_Mode_t type);
-SCREEN_Event_t SCREEN_DrawRGBImage(int16_t x0, int16_t y0, uint16_t width, uint16_t height, const uint8_t *image, SCREEN_Mode_t type);
+SCREEN_Event_t SCREEN_DrawRGBImage(int16_t x0, int16_t y0, uint16_t width, uint16_t height, const uint8_t *image);
 
+void SCREEN_Test(uint8_t screen_num);
 #endif

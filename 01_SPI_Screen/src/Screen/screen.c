@@ -83,9 +83,7 @@ SCREEN_Event_t SCREEN_DrawRectSolid(int16_t x0, int16_t x1, int16_t y0, int16_t 
     int16_t y_end   = (y0 < y1)? y1 : y0;
     
 	for(int16_t y = y_start; y <= y_end; y++) {
-		for(int16_t x = x_start; x <= x_end; x++) {
-			SCREEN_DrawPixel(x, y, Pixel_Set, type);
-		}
+		DrawHorLine(x_start, x_end, y, Pixel_Set, type);
 	}
 
 	return SCREEN_OK;
@@ -146,8 +144,8 @@ SCREEN_Event_t SCREEN_DrawRoundRectSolid(int16_t x0, int16_t x1, int16_t y0, int
 	int16_t d = 3 - 2 * radius;
 
 	// 存储每行的左右边界（使用固定大小数组，避免VLA）
-	static int16_t left_bound[SCREEN_MAX_ROUND_RADIUS + 1];
-	static int16_t right_bound[SCREEN_MAX_ROUND_RADIUS + 1];
+	int16_t left_bound[SCREEN_MAX_ROUND_RADIUS + 1];
+	int16_t right_bound[SCREEN_MAX_ROUND_RADIUS + 1];
 
 	// 初始化边界数组
 	for (int i = 0; i <= radius; i++) {
@@ -404,8 +402,8 @@ SCREEN_Event_t SCREEN_DrawQuarSector(int16_t x0, int16_t y0, uint16_t r, uint8_t
     int16_t d = 3 - 2 * r;
     
     // 存储每行的最小和最大x值
-    int16_t min_x[ST7735_HEIGHT];
-    int16_t max_x[ST7735_HEIGHT];
+    static int16_t min_x[ST7735_HEIGHT];
+    static int16_t max_x[ST7735_HEIGHT];
 
     // 初始化数组 - memset不能正确设置int16_t数组的非字节值，需使用循环
     for(int i = 0; i < ST7735_HEIGHT; i++) {
@@ -506,8 +504,8 @@ SCREEN_Event_t SCREEN_DrawString(int16_t x0, int16_t y0, const char *str, const 
 									SCREEN_Pixel_t Pixel_Set, SCREEN_Mode_t type)
 {
     // 修正坐标系
-	uint16_t current_x = x0;
-	uint16_t current_y = y0;
+	int16_t current_x = x0;
+	int16_t current_y = y0;
 	
 	while(*str != '\0')
 	{
@@ -561,12 +559,12 @@ SCREEN_Event_t SCREEN_DrawUTFChar(int16_t x0, int16_t y0, const char *utf8_char,
 			break;  // 未找到
 		}
 
-		// // 早期返回优化：如果当前编码大于目标，说明表中无此汉字（假设有序）
-		// if (table[i].UTF8_code[0] > target[0] ||
-		// 	(table[i].UTF8_code[0] == target[0] && table[i].UTF8_code[1] > target[1]) ||
-		// 	(table[i].UTF8_code[0] == target[0] && table[i].UTF8_code[1] == target[1] && table[i].UTF8_code[2] > target[2])) {
-		// 	break;  // 目标汉字不在表中
-		// }
+		// 早期返回优化：如果当前编码大于目标，说明表中无此汉字（假设有序）
+		if (table[i].UTF8_code[0] > target[0] ||
+			(table[i].UTF8_code[0] == target[0] && table[i].UTF8_code[1] > target[1]) ||
+			(table[i].UTF8_code[0] == target[0] && table[i].UTF8_code[1] == target[1] && table[i].UTF8_code[2] > target[2])) {
+			break;  // 目标汉字不在表中
+		}
 
 		// 比较UTF-8编码（比较完整的3字节）
 		if (table[i].UTF8_code[0] == target[0] &&
@@ -636,7 +634,7 @@ SCREEN_Event_t SCREEN_DrawUTFString(int16_t x0, int16_t y0, const char *utf8_str
 		return SCREEN_PARAM_ERROR;
 	}
 
-	uint16_t current_x = x0;
+	int16_t current_x = x0;
 	uint16_t current_y = y0;
 	const char *p = utf8_str;
 
@@ -734,7 +732,7 @@ SCREEN_Event_t SCREEN_DrawImage(int16_t x0, int16_t y0, uint16_t width, uint16_t
  * @param type: 绘制模式
  */
 SCREEN_Event_t SCREEN_DrawRGBImage(int16_t x0, int16_t y0, uint16_t width, uint16_t height,
-								const uint8_t *image, SCREEN_Mode_t type)
+								const uint8_t *image)
 {
 	if (width == 0 || height == 0 || image == NULL) {
 		return SCREEN_OK;
@@ -745,9 +743,7 @@ SCREEN_Event_t SCREEN_DrawRGBImage(int16_t x0, int16_t y0, uint16_t width, uint1
 		for (uint16_t x = 0; x < width; x++) {
 			// 获取 RGB565 颜色值（每个像素 2 字节）
 			SCREEN_Pixel_t pixel = (SCREEN_Pixel_t)(image[(y * width + x) * 2 + 1] << 8 | image[(y * width + x) * 2]);
-			if(pixel != SCREEN_WHITE){
-				SCREEN_DrawPixel(x0 + x, y0 + y, pixel, type);
-			}
+			SCREEN_DrawPixel(x0 + x, y0 + y, pixel, SCREEN_Nor);
 		}
 	}
 
