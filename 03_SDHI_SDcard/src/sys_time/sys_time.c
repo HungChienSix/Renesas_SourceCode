@@ -1,8 +1,7 @@
 /* V1.0 System Time Module */
 
-#include <sys_time/sys_time.h>
+#include "sys_time/sys_time.h"
 #include "bsp_api.h"
-#include "stdio.h"
 
 /* 初始化系统时间计数器（DWT周期计数器） */
 void SysTime_Init(void)
@@ -51,4 +50,3 @@ uint32_t SysTime_GetClockHz(void)
 {
     return SystemCoreClock;
 }
-

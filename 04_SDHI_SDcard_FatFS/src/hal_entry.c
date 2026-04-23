@@ -1,4 +1,11 @@
 #include "hal_data.h"
+#include "UART_debug/uart_debug.h"
+#include "FatFS/ff.h"
+#include "sys_time/sys_time.h"
+
+/* SD卡事先格式化为 Fat32 512字节 ，具体配置如有更改请参考ffconf.h文件 ,文件里面部分配置已经做出更改 */
+/* FatFS的官方网址是 https://elm-chan.org/fsw/ff/ */
+/* 本代码采用的FatFS源码版本是最新(?)的 R0.16 */
 
 #if (1 == BSP_MULTICORE_PROJECT) && BSP_TZ_SECURE_BUILD
 bsp_ipc_semaphore_handle_t g_core_start_semaphore =
@@ -14,6 +21,28 @@ bsp_ipc_semaphore_handle_t g_core_start_semaphore =
 void hal_entry(void)
 {
     /* TODO: add your own code here */
+    SysTime_Init();
+    UART_debug_Init();
+
+    printf("Hello World!\r\n");
+
+    /* FatFS mount test */
+    FATFS FatFS;
+    FRESULT result;
+
+    printf("\r\n=== FatFS Mount Test ===\r\n");
+    printf("Initializing SD card hardware...\r\n");
+
+    result = f_mount(&FatFS, "1:", 1);
+    if (result == FR_OK) {
+        printf("[OK] FatFS mount successful!\r\n");
+    } else {
+        printf("[ERR] FatFS mount failed: %d\r\n", result);
+    }
+
+    while(1){
+
+    }
 
     /* Wake up 2nd core if this is first core and we are inside a multicore project. */
 #if (0 == _RA_CORE) && (1 == BSP_MULTICORE_PROJECT) && !BSP_TZ_NONSECURE_BUILD

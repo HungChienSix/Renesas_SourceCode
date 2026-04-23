@@ -2,9 +2,6 @@
 
 #include <UART_Debug/uart_debug.h>
 
-// TXD --> P302 (SCI2)
-// RXD --> P301 (SCI2)
-
 /* 调试串口初始化函数 */
 void UART_debug_Init(void)
 {

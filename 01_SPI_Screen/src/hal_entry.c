@@ -1,7 +1,15 @@
 #include "hal_data.h"
-#include ".\UART_debug\uart_debug.h"
-#include ".\Screen\screen_ui.h"
-#include ".\sys_time\sys_time.h"
+#include "UART_debug/uart_debug.h"
+#include "Screen/screen_ui.h"
+#include "sys_time/sys_time.h"
+
+/* 本工程使用的是 ST7735 128*128 1.44寸 的屏幕，由于不带字库显示中文略显复杂 */
+/* 里面驱动代码为原创 */
+/* 屏幕相关资料在 https://pan.baidu.com/s/1PiJNGIKneVSB_7-v3qPSUQ?pwd=8888 */
+
+/* 图片使用 image2lcd 取模 */
+/* 字体使用 PCtoLCD2002 取模 */
+/* 汉字取模完成之后，借助 python代码 convert_font.py 转化成适合本项目的代码 */
 
 #if (1 == BSP_MULTICORE_PROJECT) && BSP_TZ_SECURE_BUILD
 bsp_ipc_semaphore_handle_t g_core_start_semaphore =

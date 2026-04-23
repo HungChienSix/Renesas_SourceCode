@@ -1,7 +1,50 @@
 #include "st7735.h"
-#include "../sys_time/sys_time.h"
+#include "sys_time/sys_time.h"
 
-// 帧缓冲区：128x128 像素, 16位色 (RGB565), 2 字节/像素
+/* SPI 发送相关变量 */ 
+volatile bool spi_transfer_complete_flag = false;
+
+/* SPI 发送函数 */
+bool SCREEN_SPI_Transfer(void const * p_src, uint32_t length, uint32_t timeout_us){
+	spi_transfer_complete_flag = false;
+
+	fsp_err_t err = R_SCI_SPI_Write(&g_spi0_ctrl, p_src, length, SPI_BIT_WIDTH_8_BITS);
+	if (err != FSP_SUCCESS) {
+		printf("[ST7735] SPI Write失败: %d\r\n", (int)err);
+		return false;
+	}
+
+	/* 先紧密自旋，快速捕获短传输完成 */
+	uint32_t spins = 0;
+	while (!spi_transfer_complete_flag) {
+		if (++spins > 100) {
+			if (timeout_us == 0) break;
+			timeout_us--;
+			R_BSP_SoftwareDelay(1U, BSP_DELAY_UNITS_MICROSECONDS);
+		}
+	}
+
+	if (!spi_transfer_complete_flag) {
+		printf("[ST7735] SPI传输超时\r\n");
+		return false;
+	}
+	return true;
+}
+
+void sci_spi_callback(spi_callback_args_t *p_args){
+    switch (p_args->event)
+    {
+        case SPI_EVENT_TRANSFER_COMPLETE:
+        {
+            spi_transfer_complete_flag  = true;
+            break;
+        }
+        default:
+            break;
+    }
+}
+
+/* 帧缓冲区：128x128 像素, 16位色 (RGB565) */ 
 static uint16_t display_ram[ST7735_HEIGHT][ST7735_WIDTH] = {0x0000};
 
 void SCREEN_RefreshScreen_Force(void) ;
@@ -42,23 +85,6 @@ void SCREEN_RefreshScreen_Force(void) ;
 
 void SCREEN_RefreshScreen_Force(void) ;
 
-// SPI 发送相关变量
-static uint32_t timeout_us ;
-volatile bool spi_transfer_complete_flag = false;
-
-void sci_spi_callback(spi_callback_args_t *p_args){
-    switch (p_args->event)
-    {
-        case SPI_EVENT_TRANSFER_COMPLETE:
-        {
-            spi_transfer_complete_flag  = true;
-            break;
-        }
-        default:
-            break;
-    }
-}
-
 void ST7735_Reset(void){
     R_IOPORT_PinWrite(&g_ioport_ctrl, TFT_RES_Pin, BSP_IO_LEVEL_LOW); // RES
     R_BSP_SoftwareDelay(100U, BSP_DELAY_UNITS_MILLISECONDS);
@@ -70,24 +96,7 @@ void ST7735_WriteCmd(uint8_t cmd){
     R_IOPORT_PinWrite(&g_ioport_ctrl, TFT_DC_Pin, BSP_IO_LEVEL_LOW);
     R_IOPORT_PinWrite(&g_ioport_ctrl, TFT_CS_Pin, BSP_IO_LEVEL_LOW);
 
-    R_SCI_SPI_Write(&g_spi0_ctrl, &cmd, 1, SPI_BIT_WIDTH_8_BITS);
-
-	/* 添加超时机制，避免无限等待 */
-	timeout_us = SPI_CMD_TIMEOUT_us;
-
-	while (spi_transfer_complete_flag == false && timeout_us>0)
-	{
-		timeout_us--;
-		R_BSP_SoftwareDelay(1U, BSP_DELAY_UNITS_MICROSECONDS);
-	}
-
-	if (spi_transfer_complete_flag == false)
-	{
-		/* 超时处理 */
-		printf("[ST7735] CMD超时\r\n");
-	}
-
-	spi_transfer_complete_flag = false;  // 清除标志
+	SCREEN_SPI_Transfer(&cmd, 1, 100000);
 
 	R_IOPORT_PinWrite(&g_ioport_ctrl, TFT_CS_Pin, BSP_IO_LEVEL_HIGH);
 }
@@ -96,24 +105,7 @@ void ST7735_WriteByte(uint8_t data){
     R_IOPORT_PinWrite(&g_ioport_ctrl, TFT_DC_Pin, BSP_IO_LEVEL_HIGH);
     R_IOPORT_PinWrite(&g_ioport_ctrl, TFT_CS_Pin, BSP_IO_LEVEL_LOW);
 
-    R_SCI_SPI_Write(&g_spi0_ctrl, &data, 1, SPI_BIT_WIDTH_8_BITS);
-
-	/* 添加超时机制，避免无限等待 */
-	timeout_us = SPI_DATA_TIMEOUT_us;
-
-	while (spi_transfer_complete_flag == false && timeout_us>0)
-	{
-		timeout_us--;
-		R_BSP_SoftwareDelay(1U, BSP_DELAY_UNITS_MICROSECONDS);
-	}
-
-	if (spi_transfer_complete_flag == false)
-	{
-		/* 超时处理 */
-		printf("[ST7735] Byte超时\r\n");
-	}
-
-	spi_transfer_complete_flag = false;  // 清除标志
+	SCREEN_SPI_Transfer(&data, 1, 100000);
 
     R_IOPORT_PinWrite(&g_ioport_ctrl, TFT_CS_Pin, BSP_IO_LEVEL_HIGH);
 }
@@ -122,24 +114,7 @@ void ST7735_WriteData(uint8_t *data, size_t data_size){
     R_IOPORT_PinWrite(&g_ioport_ctrl, TFT_DC_Pin, BSP_IO_LEVEL_HIGH);
     R_IOPORT_PinWrite(&g_ioport_ctrl, TFT_CS_Pin, BSP_IO_LEVEL_LOW);
 
-    R_SCI_SPI_Write(&g_spi0_ctrl, data, data_size, SPI_BIT_WIDTH_8_BITS);
-
-	/* 添加超时机制，避免无限等待 */
-	timeout_us = SPI_DATA_TIMEOUT_us;
-
-	while (spi_transfer_complete_flag == false && timeout_us>0)
-	{
-		timeout_us--;
-		R_BSP_SoftwareDelay(1U, BSP_DELAY_UNITS_MICROSECONDS);
-	}
-
-	if (spi_transfer_complete_flag == false)
-	{
-		/* 超时处理 */
-		printf("[ST7735] DATA超时\r\n");
-	}
-
-	spi_transfer_complete_flag = false;  // 清除标志
+	SCREEN_SPI_Transfer(data, data_size, 100000);
 
 	R_IOPORT_PinWrite(&g_ioport_ctrl, TFT_CS_Pin, BSP_IO_LEVEL_HIGH);
 }
@@ -313,7 +288,7 @@ void DrawPixel(int16_t x, int16_t y, SCREEN_Pixel_t Pixel_Set){
  * @brief 绘制水平线 
  */
 void DrawHorLine(int16_t x0, int16_t x1, int16_t y, SCREEN_Pixel_t Pixel_Set, SCREEN_Mode_t type){
-	// 边界裁剪
+	/* 边界裁剪 */
 	if (y < 0 || y >= ST7735_HEIGHT) return;
 	int16_t x_start = (x0 < x1) ? x0 : x1;
 	int16_t x_end   = (x0 < x1) ? x1 : x0;
@@ -339,7 +314,7 @@ void DrawHorLine(int16_t x0, int16_t x1, int16_t y, SCREEN_Pixel_t Pixel_Set, SC
  * @brief 绘制垂直线
  */
 void DrawVerLine(int16_t x, int16_t y0, int16_t y1, SCREEN_Pixel_t Pixel_Set, SCREEN_Mode_t type){
-	// 边界裁剪
+	/* 边界裁剪 */
 	if (x < 0 || x >= ST7735_WIDTH) return;
 	int16_t y_start = (y0 < y1) ? y0 : y1;
 	int16_t y_end   = (y0 < y1) ? y1 : y0;
@@ -387,7 +362,7 @@ void SCREEN_FillScreen(SCREEN_Pixel_t Pixel_Set) {
 		mark_dirty_range(y, c0, c1);
 	}
 #else
-	// RGB565: 高低字节相同时（如0x0000黑、0xFFFF白）可用 memset 加速
+	/* RGB565: 高低字节相同时（如0x0000黑、0xFFFF白）可用 memset 加速 */
 	uint8_t hi = (uint8_t)(Pixel_Set >> 8);
 	uint8_t lo = (uint8_t)(Pixel_Set & 0xFF);
 	if (hi == lo) {
@@ -410,13 +385,13 @@ void SCREEN_RefreshScreen_Force(void) {
     static uint8_t buff[ST7735_WIDTH * 2];  // 单行缓冲区
     
     for (uint16_t h = 0; h < ST7735_HEIGHT; h++) {
-        // 准备当前行数据
+        /* 准备当前行数据 */
         for (uint16_t w = 0; w < ST7735_WIDTH; w++) {
             buff[w * 2] = (uint8_t)(display_ram[h][w] >> 8);
             buff[w * 2 + 1] = (uint8_t)(display_ram[h][w] & 0xFF);
         }
         
-        // 发送当前行数据
+        /* 发送当前行数据 */
         ST7735_WriteData(buff, ST7735_WIDTH * 2);
     }
 }
@@ -426,7 +401,7 @@ void SCREEN_RefreshScreen_Force(void) {
  * @note 时间测量单位：毫秒(ms)
  */
 uint32_t SCREEN_RefreshScreen(void) {
-	// 记录本次刷新开始时间
+	/* 记录本次刷新开始时间 */
 	uint32_t start_time = SysTime_Get();
 
 #ifdef ST7735_PARTIAL_REFRESH
@@ -455,7 +430,7 @@ uint32_t SCREEN_RefreshScreen(void) {
 	SCREEN_RefreshScreen_Force();
 #endif
 
-	// 记录本次刷新结束时间
+	/* 记录本次刷新结束时间 */
 	uint32_t end_time = SysTime_Get();
 	uint32_t elapsed_cycles = SysTime_Elapsed(start_time, end_time);
 	uint32_t elapsed_ms = SysTime_CyclesToMs(elapsed_cycles);

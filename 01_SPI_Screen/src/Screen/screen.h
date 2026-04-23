@@ -1,7 +1,3 @@
-/* V1.0 Screen */
-/* V1.1 Screen : 添加屏幕的输入，实现外界输入控制屏幕 */
-/* V1.2 Screen : 实现按键控制 */
-/* V1.3 Screen : 优化代码结构，为后续加入摇杆留出接口 */
 /* V1.4 Screen : 修复内存安全问题 */
 
 #ifndef SCREEN_H
@@ -28,20 +24,20 @@ typedef enum SCREEN_Event{
 	SCREEN_CHAR_EXCEED,		// 字符超出范围
 } SCREEN_Event_t;
 
-// ASCII字体
+/* ASCII字体 */
 extern const struFont_t Font_8x16_consolas   ;
 extern const struFont_t Font_8x12_consolas   ;
 extern const struFont_t Font_8x16_serif      ;
 extern const struFont_t Font_8x12_serif      ;
 
-// UTF-8汉字字体
+/* UTF-8汉字字体 */
 extern const struFont_UTF_t Font_UTF_16x16_YuMincho;
 extern const struFont_UTF_t Font_UTF_16x12_YuMincho;
 
-// 单色图片
+/* 单色图片 */
 extern const unsigned char gImage_apple[128];
 
-// RGB图片
+/* RGB图片 */
 extern const unsigned char gImage_RGB_163music[2048];
 extern const unsigned char gImage_RGB_kugou[2048];
 extern const unsigned char gImage_RGB_QQmusic[2048];
@@ -62,4 +58,4 @@ SCREEN_Event_t SCREEN_DrawImage(int16_t x0, int16_t y0, uint16_t width, uint16_t
 SCREEN_Event_t SCREEN_DrawRGBImage(int16_t x0, int16_t y0, uint16_t width, uint16_t height, const uint8_t *image);
 
 void SCREEN_Test(uint8_t screen_num);
-#endif
+#endif /* SCREEN_H */

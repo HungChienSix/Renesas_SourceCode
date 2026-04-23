@@ -1,10 +1,6 @@
 #ifndef FONTS_H
 #define FONTS_H
 
-// 图片使用 image2lcd 取模
-// 字体使用 PCtoLCD2002 取模
-// 汉字取模完成之后，借助 python convert_font.py 转化成适合本项目的代码
-
 #include <stdint.h>
 
 typedef struct {

@@ -11,6 +11,7 @@
 #include <unistd.h>
 #include <errno.h>
 
+/* 串口初始化 */
 void UART_debug_Init(void);
 
 /* 函数声明 防止编译器警告 */
@@ -59,4 +60,4 @@ int _fstat(int fd, struct stat *st);
      return 0;
  }
 
-#endif /* UART_DEBUG_UART_DEBUG_H_ */
+#endif /* UART_DEBUG_H */

@@ -1,38 +1,36 @@
 #ifndef ST7735_H
 #define ST7735_H
 
-// 本工程使用的是 ST7735 128*128 1.44寸 的屏幕，由于不带字库显示中文略显复杂
-
-// SCK --> P202 (SCI4)
-// TXD --> P302 (SCI4)
-// RES --> P311 (output initial low)
-// DC  --> P312 (output initial low)
-// CS  --> P907 (output initial low)
-// BLK --> P211 (output initial low)
+/* SCK --> P202 (SCI4) */
+/* TXD --> P302 (SCI4) */
+/* RES --> P311 (output initial low) */
+/* DC  --> P312 (output initial low) */
+/* CS  --> P907 (output initial low) */
+/* BLK --> P211 (output initial low) */
 
 #include "hal_data.h"
 #include <stdio.h>
 
-typedef uint16_t SCREEN_Pixel_t;
+typedef uint16_t 		SCREEN_Pixel_t;
 
-// 屏幕尺寸和偏移量
-#define ST7735_XSTART 2
-#define ST7735_YSTART 3
-#define ST7735_WIDTH  128
-#define ST7735_HEIGHT 128
+/* 屏幕尺寸和偏移量 */
+#define ST7735_XSTART 	2
+#define ST7735_YSTART 	3
+#define ST7735_WIDTH  	128
+#define ST7735_HEIGHT	128
 
-// Color definitions RGB565值
-#define SCREEN_BLACK   0x0000
-#define SCREEN_RED     0xF800
-#define SCREEN_GREEN   0x07E0
-#define SCREEN_BLUE    0x001F
-#define SCREEN_YELLOW  0xFFE0
-#define SCREEN_MAGENTA 0xF81F
-#define SCREEN_CYAN    0x07FF
-#define SCREEN_WHITE   0xFFFF
+/* Color definitions RGB565值 */
+#define SCREEN_BLACK 	0x0000
+#define SCREEN_RED     	0xF800
+#define SCREEN_GREEN   	0x07E0
+#define SCREEN_BLUE    	0x001F
+#define SCREEN_YELLOW  	0xFFE0
+#define SCREEN_MAGENTA 	0xF81F
+#define SCREEN_CYAN    	0x07FF
+#define SCREEN_WHITE   	0xFFFF
 #define SCREEN_COLOR565(r, g, b) (((r & 0xF8) << 8) | ((g & 0xFC) << 3) | ((b & 0xF8) >> 3))
 
-// ST7735 命令
+/* ST7735 命令 */
 #define ST7735_SWREST   0x01 // 软件重启
 #define ST7735_SLPIN    0x10 // 进入睡眠
 #define ST7735_SLPOUT   0x11 // 解除睡眠//
@@ -77,26 +75,22 @@ typedef uint16_t SCREEN_Pixel_t;
 #define ST7735_GAMCTRN  0xE1 // Gamma ‘-’polarity Correction Characteristics Setting
 #define ST7735_GCV      0xFC // Gate Pump Clock Frequency Variable
 
-// MADCT命令的参数 YXV-000-正向 111-旋转180
-#define ST7735_MADCTL_MY  0x01
-#define ST7735_MADCTL_MX  0x01
-#define ST7735_MADCTL_MV  0x00
-#define ST7735_MADCTL_ML  0x00 // 00是从上到下 01是从下到上
-#define ST7735_MADCTL_RGB 0x01 // 00是RGB 01是BGR
-#define ST7735_MADCTL_MH  0x00 // 00是从左到右 01是从右到左
+/* MADCT命令的参数 YXV-000-正向 111-旋转180 */
+#define ST7735_MADCTL_MY 	0x01
+#define ST7735_MADCTL_MX  	0x01
+#define ST7735_MADCTL_MV  	0x00
+#define ST7735_MADCTL_ML  	0x00 // 00是从上到下 01是从下到上
+#define ST7735_MADCTL_RGB 	0x01 // 00是RGB 01是BGR
+#define ST7735_MADCTL_MH  	0x00 // 00是从左到右 01是从右到左
 #define ST7735_MADCTL_Parameter (ST7735_MADCTL_MY << 7 | ST7735_MADCTL_MX << 6 | ST7735_MADCTL_MV << 5 | ST7735_MADCTL_ML << 4 | ST7735_MADCTL_RGB << 3 | ST7735_MADCTL_MH << 2 )
-
-// SPI发送超时 (10 MHz时钟)
-#define SPI_CMD_TIMEOUT_us		10000
-#define SPI_DATA_TIMEOUT_us		100000  
-
-// 分区刷新宏
-#define ST7735_PARTIAL_REFRESH
 
 typedef enum SCREEN_Mode{
 	SCREEN_Nor = 0x00,  // 正常绘制：新颜色覆盖旧颜色
 	SCREEN_Xor ,		// 异或模式：相同颜色则反色
 } SCREEN_Mode_t;
+
+/* 分区刷新宏 */
+#define ST7735_PARTIAL_REFRESH
 
 void            SCREEN_Init(void);
 void            SCREEN_FillScreen(SCREEN_Pixel_t Pixel_Set);
@@ -106,5 +100,6 @@ SCREEN_Pixel_t  ReadPixel(int16_t x, int16_t y);
 void            DrawPixel(int16_t x, int16_t y, SCREEN_Pixel_t Pixel_Set);
 void            DrawHorLine(int16_t x0, int16_t x1, int16_t y, SCREEN_Pixel_t Pixel_Set, SCREEN_Mode_t type);
 void            DrawVerLine(int16_t x, int16_t y0, int16_t y1, SCREEN_Pixel_t Pixel_Set, SCREEN_Mode_t type);
+bool            SCREEN_SPI_Transfer(void const * p_src, uint32_t length, uint32_t timeout_us);
 
-#endif
+#endif /* ST7735_H */

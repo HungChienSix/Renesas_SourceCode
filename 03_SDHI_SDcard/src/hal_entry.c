@@ -3,6 +3,9 @@
 #include "SDHI_SDcard/sdhi_sdcard.h"
 #include "sys_time/sys_time.h"
 
+/* SD卡读取，经过测试32G和128G的SDcard都可以读取，TF卡同理 */
+/* 由于开发板引脚分配的问题，该项目使用单线SDHI，如果需要使用4线请注意SDHI的时钟频率不能太高 */
+
 #if (1 == BSP_MULTICORE_PROJECT) && BSP_TZ_SECURE_BUILD
 bsp_ipc_semaphore_handle_t g_core_start_semaphore =
 {
