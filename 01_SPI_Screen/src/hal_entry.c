@@ -11,6 +11,9 @@
 /* 字体使用 PCtoLCD2002 取模 */
 /* 汉字取模完成之后，借助 python代码 convert_font.py 转化成适合本项目的代码 */
 
+/* font_bitmap_gen.py : 可以实现字符取模 */
+/* lcd_ui_designer.py : 可以实现简单的页面设计 */
+
 #if (1 == BSP_MULTICORE_PROJECT) && BSP_TZ_SECURE_BUILD
 bsp_ipc_semaphore_handle_t g_core_start_semaphore =
 {
@@ -28,12 +31,19 @@ void hal_entry(void)
     UART_debug_Init();
     SysTime_Init();      // 初始化系统时间计数器
     SCREEN_Init();
-    
-    uint8_t screen_num = 0;  // 界面编号
 
     while(1){
-        SCREEN_Test(screen_num);
-        screen_num = (screen_num + 1) % 2; // 循环切换界面编号（0、1）
+        SCREEN_FillScreen(SCREEN_BLACK);
+        SCREEN_DrawString(1,  0, "QWERTYUIOPASDFGHJKL", &Font_8x16_consola, SCREEN_WHITE, SCREEN_Nor);
+        SCREEN_DrawString(1, 18, "QWERTYUIOPASDFGHJKL", &Font_8x12_consola, SCREEN_WHITE, SCREEN_Nor);
+        SCREEN_DrawString(1, 36, "QWERTYUIOPASDFGHJKL", &Font_8x16_times, SCREEN_WHITE, SCREEN_Nor);
+        SCREEN_DrawString(1, 54, "QWERTYUIOPASDFGHJKL", &Font_8x12_times, SCREEN_WHITE, SCREEN_Nor);
+
+        SCREEN_DrawUTFString(0, 72, "你好世界", &Font_8x16_consola, &Font_UTF_16x16_YuMincho, SCREEN_GREEN, SCREEN_Nor);
+        SCREEN_DrawUTFString(0, 90, "你好世界", &Font_8x12_consola, &Font_UTF_16x12_YuMincho, SCREEN_GREEN, SCREEN_Nor);
+
+        SCREEN_RefreshScreen();
+        R_BSP_SoftwareDelay(1000U, BSP_DELAY_UNITS_MILLISECONDS);
     }
 
     /* Wake up 2nd core if this is first core and we are inside a multicore project. */

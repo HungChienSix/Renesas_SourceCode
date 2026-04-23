@@ -24,24 +24,6 @@ typedef enum SCREEN_Event{
 	SCREEN_CHAR_EXCEED,		// 字符超出范围
 } SCREEN_Event_t;
 
-/* ASCII字体 */
-extern const struFont_t Font_8x16_consolas   ;
-extern const struFont_t Font_8x12_consolas   ;
-extern const struFont_t Font_8x16_serif      ;
-extern const struFont_t Font_8x12_serif      ;
-
-/* UTF-8汉字字体 */
-extern const struFont_UTF_t Font_UTF_16x16_YuMincho;
-extern const struFont_UTF_t Font_UTF_16x12_YuMincho;
-
-/* 单色图片 */
-extern const unsigned char gImage_apple[128];
-
-/* RGB图片 */
-extern const unsigned char gImage_RGB_163music[2048];
-extern const unsigned char gImage_RGB_kugou[2048];
-extern const unsigned char gImage_RGB_QQmusic[2048];
-
 SCREEN_Event_t SCREEN_DrawPixel(int16_t x0, int16_t y0, SCREEN_Pixel_t Pixel_Set, SCREEN_Mode_t type);
 SCREEN_Event_t SCREEN_DrawLine(int16_t x0, int16_t x1, int16_t y0, int16_t y1, SCREEN_Pixel_t Pixel_Set, SCREEN_Mode_t type);
 SCREEN_Event_t SCREEN_DrawRectSolid(int16_t x0, int16_t x1, int16_t y0, int16_t y1, SCREEN_Pixel_t Pixel_Set, SCREEN_Mode_t type);
@@ -57,5 +39,4 @@ SCREEN_Event_t SCREEN_DrawUTFString(int16_t x0, int16_t y0, const char *utf8_str
 SCREEN_Event_t SCREEN_DrawImage(int16_t x0, int16_t y0, uint16_t width, uint16_t height, const uint8_t *image, SCREEN_Pixel_t Pixel_Set, SCREEN_Mode_t type);
 SCREEN_Event_t SCREEN_DrawRGBImage(int16_t x0, int16_t y0, uint16_t width, uint16_t height, const uint8_t *image);
 
-void SCREEN_Test(uint8_t screen_num);
 #endif /* SCREEN_H */

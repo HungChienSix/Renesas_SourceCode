@@ -296,6 +296,11 @@ void DrawHorLine(int16_t x0, int16_t x1, int16_t y, SCREEN_Pixel_t Pixel_Set, SC
 	if (x_end >= ST7735_WIDTH) x_end = ST7735_WIDTH - 1;
 	if (x_start > x_end) return;
 
+#ifdef ST7735_PARTIAL_REFRESH
+	int16_t dirty_min = ST7735_WIDTH;
+	int16_t dirty_max = -1;
+#endif
+
 	for (int16_t x = x_start; x <= x_end; x++) {
 		SCREEN_Pixel_t val;
 		if (type == SCREEN_Xor && display_ram[y][x] == Pixel_Set)
@@ -305,9 +310,16 @@ void DrawHorLine(int16_t x0, int16_t x1, int16_t y, SCREEN_Pixel_t Pixel_Set, SC
 		if (display_ram[y][x] == val) continue;
 		display_ram[y][x] = val;
 #ifdef ST7735_PARTIAL_REFRESH
-		mark_dirty(y, x);
+		if (x < dirty_min) dirty_min = x;
+		dirty_max = x;
 #endif
 	}
+
+#ifdef ST7735_PARTIAL_REFRESH
+	if (dirty_max >= dirty_min) {
+		mark_dirty_range(y, dirty_min, dirty_max);
+	}
+#endif
 }
 
 /**
