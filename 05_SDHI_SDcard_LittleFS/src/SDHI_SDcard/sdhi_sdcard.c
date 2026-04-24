@@ -3,12 +3,39 @@
 #include "SDHI_SDcard/sdhi_sdcard.h"
 #include "stdio.h"
 
+sdmmc_device_t my_sdmmc_device = {0};
+
 /* SDHI SD卡初始化函数 */
 void SDCard_Init(void)
 {
     fsp_err_t err;
 
     err = R_SDHI_Open(&g_sdmmc0_ctrl, &g_sdmmc0_cfg);
+    assert(FSP_SUCCESS == err);
+
+#ifdef CARD_INSERT_DETECT
+        /* 检查卡是否插入 */
+        err = R_SDHI_StatusGet(&g_sdmmc0_ctrl, &status);
+        assert(FSP_SUCCESS == err);
+        if (!status.card_inserted)
+        {
+            /* 等待卡插入中断 */
+            while (!g_card_inserted)
+            {
+                printf("\r\n请插入SD卡\r\n");
+                R_BSP_SoftwareDelay(1000, BSP_DELAY_UNITS_MILLISECONDS);
+            }
+            printf("\r\n检测到卡已插入\r\n");
+        }
+#endif
+
+    /* 设备应在检测到VDD最小值后1ms内准备好接受第一个命令。
+        参考SD物理层简化规范6.00版第6.4.1.1节“卡的通电时间”。
+    */
+    R_BSP_SoftwareDelay(1U, BSP_DELAY_UNITS_MILLISECONDS);
+
+    /* 初始化SD卡。在为SD设备插入卡之前，不应执行此操作。 */
+    err = R_SDHI_MediaInit(&g_sdmmc0_ctrl, &my_sdmmc_device);
     assert(FSP_SUCCESS == err);
 }
 
@@ -18,7 +45,6 @@ __IO uint32_t g_card_erase_complete = 0;
 #ifdef CARD_INSERT_DETECT
     __IO bool g_card_inserted = false;
 #endif
-
 
 /* 如果启用了卡检测中断，则在发生卡检测事件时调用回调。 */
 void sdhi_callback(sdmmc_callback_args_t *p_args)
@@ -55,44 +81,77 @@ void sdhi_callback(sdmmc_callback_args_t *p_args)
 uint8_t g_dest[SDHI_MAX_BLOCK_SIZE] BSP_ALIGN_VARIABLE(4);  //4字节对齐
 uint8_t g_src[SDHI_MAX_BLOCK_SIZE]  BSP_ALIGN_VARIABLE(4);
 
+uint8_t SDCard_Read(uint8_t *buff, uint32_t sector, uint32_t count, uint32_t timeout_us)
+{
+    g_transfer_complete = 0;
+    R_SDHI_Read(&g_sdmmc0_ctrl, buff, sector, count);
+
+    while (g_transfer_complete == 0 && timeout_us > 0)
+    {
+        timeout_us--;
+        R_BSP_SoftwareDelay(1U, BSP_DELAY_UNITS_MICROSECONDS);
+    }
+
+    if (g_transfer_complete != 1)
+    {
+        printf("[FatFS] SD卡读取失败\r\n");
+        g_transfer_complete = 0;
+        return 1;
+    }
+
+    g_transfer_complete = 0;
+    return 0;
+}
+
+uint8_t SDCard_Write(const uint8_t *buff, uint32_t sector, uint32_t count, uint32_t timeout_us)
+{
+    g_transfer_complete = 0;
+    R_SDHI_Write(&g_sdmmc0_ctrl, buff, sector, count);
+
+    while (g_transfer_complete == 0 && timeout_us > 0)
+    {
+        timeout_us--;
+        R_BSP_SoftwareDelay(1U, BSP_DELAY_UNITS_MICROSECONDS);
+    }
+
+    if (g_transfer_complete != 1)
+    {
+        printf("[FatFS] SD卡写入失败\r\n");
+        g_transfer_complete = 0;
+        return 1;
+    }
+
+    g_transfer_complete = 0;
+    return 0;
+}
+
+void SDCard_ioctl(uint8_t cmd, void *buff)
+{
+    switch (cmd)
+    {
+        case 0:     /* GET_SECTOR_SIZE */
+            *(uint16_t *)buff = (uint16_t)my_sdmmc_device.sector_size_bytes;
+            break;
+        case 1:     /* GET_BLOCK_SIZE */
+            *(uint32_t *)buff = my_sdmmc_device.erase_sector_count;
+            break;
+        case 2:     /* GET_SECTOR_COUNT */
+            *(uint32_t *)buff = my_sdmmc_device.sector_count;
+            break;
+    }
+}
+
 void SDCard_Operation(void)
 {
     fsp_err_t err;
     sdmmc_status_t status;
-    sdmmc_device_t my_sdmmc_device = {0};
     uint32_t i;
-
 
     /* 初始化要传输到SD卡内的源数组 */
     for (i = 0; i < SDHI_MAX_BLOCK_SIZE; i++)
     {
         g_src[i] = (uint8_t)('A' + (uint8_t)(i % 26));
     }
-
-#ifdef CARD_INSERT_DETECT
-    /* 检查卡是否插入 */
-    err = R_SDHI_StatusGet(&g_sdmmc0_ctrl, &status);
-    assert(FSP_SUCCESS == err);
-    if (!status.card_inserted)
-    {
-        /* 等待卡插入中断 */
-        while (!g_card_inserted)
-        {
-            printf("\r\n请插入SD卡\r\n");
-            R_BSP_SoftwareDelay(1000, BSP_DELAY_UNITS_MILLISECONDS);
-        }
-        printf("\r\n检测到卡已插入\r\n");
-    }
-#endif
-
-    /* 设备应在检测到VDD最小值后1ms内准备好接受第一个命令。
-       参考SD物理层简化规范6.00版第6.4.1.1节“卡的通电时间”。
-    */
-    R_BSP_SoftwareDelay(1U, BSP_DELAY_UNITS_MILLISECONDS);
-
-    /* 初始化SD卡。在为SD设备插入卡之前，不应执行此操作。 */
-    err = R_SDHI_MediaInit(&g_sdmmc0_ctrl, &my_sdmmc_device);
-    assert(FSP_SUCCESS == err);
 
     /* 写入数据 */
     err = R_SDHI_Write(&g_sdmmc0_ctrl, g_src, 1, 1);

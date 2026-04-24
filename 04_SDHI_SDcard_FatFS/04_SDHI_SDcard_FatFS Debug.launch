@@ -19,7 +19,7 @@
     <intAttribute key="ilg.gnumcueclipse.debug.gdbjtag.pyocd.gdbServerGdbPortNumber" value="3333"/>
     <booleanAttribute key="ilg.gnumcueclipse.debug.gdbjtag.pyocd.gdbServerHaltAtHardFault" value="true"/>
     <stringAttribute key="ilg.gnumcueclipse.debug.gdbjtag.pyocd.gdbServerLog" value=""/>
-    <stringAttribute key="ilg.gnumcueclipse.debug.gdbjtag.pyocd.gdbServerOther" value="--config D:\e2_Workspace\config\pyocd.yaml"/>
+    <stringAttribute key="ilg.gnumcueclipse.debug.gdbjtag.pyocd.gdbServerOther" value="--config  D:\Git_Repo\Renesas_Repo\pyocd.yaml"/>
     <booleanAttribute key="ilg.gnumcueclipse.debug.gdbjtag.pyocd.gdbServerOverrideTarget" value="true"/>
     <intAttribute key="ilg.gnumcueclipse.debug.gdbjtag.pyocd.gdbServerResetType" value="0"/>
     <booleanAttribute key="ilg.gnumcueclipse.debug.gdbjtag.pyocd.gdbServerSmartFlash" value="true"/>

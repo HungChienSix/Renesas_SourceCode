@@ -15,11 +15,11 @@
  * 关键差异：
  * 1. SD卡扇区大小固定512字节，使用扇区号寻址（不是字节地址）
  * 2. SD卡写入时自动处理擦除，erase回调可以为空操作
- * 3. SD卡使用DMA异步传输，需要等待传输完成回调
+ * 3. SDCard_Read/SDCard_Write已封装超时和传输完成检测
  */
 
-/* 外部变量：SDHI异步传输完成标志（定义在sdhi_sdcard.c的回调中设置） */
-extern volatile uint32_t g_transfer_complete;
+/* SD卡设备信息（定义在sdhi_sdcard.c中，由SDCard_Init初始化） */
+extern sdmmc_device_t my_sdmmc_device;
 
 /* LittleFS配置参数 */
 #define LFS_SD_BLOCK_SIZE       512     /* 块大小 = SD卡扇区大小 */
@@ -28,6 +28,7 @@ extern volatile uint32_t g_transfer_complete;
 #define LFS_SD_CACHE_SIZE       512     /* 缓存大小 */
 #define LFS_SD_LOOKAHEAD_SIZE   8       /* 前瞻缓冲区大小（8字节 = 64块前瞻） */
 #define LFS_SD_BLOCK_CYCLES     500     /* 擦写均衡周期 */
+#define LFS_SD_TIMEOUT_US       100000  /* SD卡操作超时(us) */
 
 /**
  * lfs与底层SD卡读数据接口
@@ -41,30 +42,11 @@ extern volatile uint32_t g_transfer_complete;
 static int lfs_sd_read(const struct lfs_config *c, lfs_block_t block,
                        lfs_off_t off, void *buffer, lfs_size_t size)
 {
-    fsp_err_t ferr;
-    /* 计算SD卡扇区号和扇区数量 */
     uint32_t sector = block * (c->block_size / SDHI_MAX_BLOCK_SIZE) + off / SDHI_MAX_BLOCK_SIZE;
     uint32_t count  = size / SDHI_MAX_BLOCK_SIZE;
 
-    /* 启动异步读取 */
-    g_transfer_complete = 0;
-    ferr = R_SDHI_Read(&g_sdmmc0_ctrl, (uint8_t *)buffer, sector, count);
-    if (FSP_SUCCESS != ferr)
-    {
+    if (SDCard_Read((uint8_t *)buffer, sector, count, LFS_SD_TIMEOUT_US) != 0)
         return LFS_ERR_IO;
-    }
-
-    /* 等待DMA传输完成 */
-    while (0 == g_transfer_complete)
-    {
-        ;
-    }
-
-    /* 检查传输结果 */
-    if (2 == g_transfer_complete)
-    {
-        return LFS_ERR_IO;
-    }
 
     return LFS_ERR_OK;
 }
@@ -81,46 +63,21 @@ static int lfs_sd_read(const struct lfs_config *c, lfs_block_t block,
 static int lfs_sd_prog(const struct lfs_config *c, lfs_block_t block,
                        lfs_off_t off, const void *buffer, lfs_size_t size)
 {
-    fsp_err_t ferr;
     uint32_t sector = block * (c->block_size / SDHI_MAX_BLOCK_SIZE) + off / SDHI_MAX_BLOCK_SIZE;
     uint32_t count  = size / SDHI_MAX_BLOCK_SIZE;
 
-    /* 启动异步写入 */
-    g_transfer_complete = 0;
-    ferr = R_SDHI_Write(&g_sdmmc0_ctrl, (const uint8_t *)buffer, sector, count);
-    if (FSP_SUCCESS != ferr)
-    {
+    if (SDCard_Write((const uint8_t *)buffer, sector, count, LFS_SD_TIMEOUT_US) != 0)
         return LFS_ERR_IO;
-    }
-
-    /* 等待DMA传输完成 */
-    while (0 == g_transfer_complete)
-    {
-        ;
-    }
-
-    /* 检查传输结果 */
-    if (2 == g_transfer_complete)
-    {
-        return LFS_ERR_IO;
-    }
 
     return LFS_ERR_OK;
 }
 
 /**
  * lfs与底层SD卡擦除接口
- *
- * 注意：SD卡写入时内部自动处理擦除，此函数为空操作。
- * 这与SPI Flash不同（SPI Flash必须先擦除再写入）。
- *
- * @param  c     lfs配置
- * @param  block 块编号
- * @return LFS_ERR_OK
+ * SD卡写入时内部自动处理擦除，此函数为空操作。
  */
 static int lfs_sd_erase(const struct lfs_config *c, lfs_block_t block)
 {
-    /* SD卡不需要手动擦除，写入时自动处理 */
     (void)c;
     (void)block;
     return LFS_ERR_OK;
@@ -128,8 +85,6 @@ static int lfs_sd_erase(const struct lfs_config *c, lfs_block_t block)
 
 /**
  * lfs与底层SD卡同步接口
- * @param  c lfs配置
- * @return LFS_ERR_OK
  */
 static int lfs_sd_sync(const struct lfs_config *c)
 {
@@ -190,49 +145,34 @@ struct lfs_config lfs_cfg =
  * LittleFS移植层初始化
  *
  * 流程：
- * 1. 初始化SDHI外设并打开SD卡
- * 2. 初始化SD卡媒体（获取容量信息）
- * 3. 设置LittleFS的block_count
- * 4. 尝试挂载LittleFS，失败则格式化后重新挂载
+ * 1. 初始化SD卡（SDCard_Init内部已完成Open和MediaInit）
+ * 2. 设置LittleFS的block_count（从全局my_sdmmc_device获取）
+ * 3. 尝试挂载LittleFS，失败则格式化后重新挂载
  *
  * @return 0 成功, 负数失败
  */
 int lfs_port_init(void)
 {
     int lfs_err;
-    fsp_err_t ferr;
-    sdmmc_device_t sd_device;
 
-    /* 1. 初始化SDHI外设并打开SD卡 */
+    /* 1. 初始化SD卡（SDCard_Init内部已完成Open和MediaInit） */
     printf("Initializing SD card...\r\n");
     SDCard_Init();
 
-    /* SD卡通电后需要1ms稳定时间 */
-    R_BSP_SoftwareDelay(1U, BSP_DELAY_UNITS_MILLISECONDS);
-
-    /* 2. 初始化SD卡媒体，获取容量信息 */
-    ferr = R_SDHI_MediaInit(&g_sdmmc0_ctrl, &sd_device);
-    if (FSP_SUCCESS != ferr)
-    {
-        printf("SD card MediaInit failed: %d\r\n", (int)ferr);
-        return -1;
-    }
-
     printf("SD card info: %d sectors, %d bytes/sector, erase unit: %d sectors\r\n",
-           (int)sd_device.sector_count,
-           (int)sd_device.sector_size_bytes,
-           (int)sd_device.erase_sector_count);
+           (int)my_sdmmc_device.sector_count,
+           (int)my_sdmmc_device.sector_size_bytes,
+           (int)my_sdmmc_device.erase_sector_count);
 
-    /* 3. 根据SD卡实际容量设置block_count */
-    lfs_cfg.block_count = sd_device.sector_count;
+    /* 2. 根据SD卡实际容量设置block_count */
+    lfs_cfg.block_count = my_sdmmc_device.sector_count;
 
-    /* 4. 尝试挂载LittleFS */
+    /* 3. 尝试挂载LittleFS */
     printf("Mounting LittleFS...\r\n");
     lfs_err = lfs_mount(&lfs_sdcard, &lfs_cfg);
 
     if (lfs_err)
     {
-        /* 挂载失败（首次使用或文件系统损坏），格式化后重新挂载 */
         printf("Mount failed (err=%d), formatting...\r\n", lfs_err);
         lfs_err = lfs_format(&lfs_sdcard, &lfs_cfg);
         if (lfs_err)
@@ -254,9 +194,6 @@ int lfs_port_init(void)
 
 /**
  * LittleFS 启动计数测试
- *
- * 每次启动读取boot_count文件，计数+1后写回。
- * 掉电后计数不会丢失，验证文件系统读写正常。
  */
 void lfs_test(void)
 {
@@ -265,7 +202,6 @@ void lfs_test(void)
 
     printf("\r\n=== LittleFS Boot Count Test ===\r\n");
 
-    /* 打开文件（读写模式，不存在则创建，使用静态文件缓存） */
     err = lfs_file_opencfg(&lfs_sdcard, &lfs_file_sdcard, "boot_count",
                            LFS_O_RDWR | LFS_O_CREAT, &file_cfg);
     if (err)
@@ -274,16 +210,13 @@ void lfs_test(void)
         return;
     }
 
-    /* 读取当前计数值 */
     lfs_file_read(&lfs_sdcard, &lfs_file_sdcard, &boot_count, sizeof(boot_count));
     printf("Current boot_count: %d\r\n", (int)boot_count);
 
-    /* 计数+1 */
     boot_count += 1;
     lfs_file_rewind(&lfs_sdcard, &lfs_file_sdcard);
     lfs_file_write(&lfs_sdcard, &lfs_file_sdcard, &boot_count, sizeof(boot_count));
 
-    /* 关闭文件（确保数据写入SD卡） */
     lfs_file_close(&lfs_sdcard, &lfs_file_sdcard);
 
     printf("Updated boot_count: %d\r\n", (int)boot_count);
