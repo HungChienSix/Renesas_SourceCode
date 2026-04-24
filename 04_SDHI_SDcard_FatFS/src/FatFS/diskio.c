@@ -10,16 +10,7 @@
 #include "ff.h"			/* Basic definitions of FatFs */
 #include "diskio.h"		/* Declarations FatFs MAI */
 
-/* Example: Declarations of the platform and disk functions in the project */
-//#include "platform.h"
-//#include "storage.h"
-
 #include "SDHI_SDcard/sdhi_sdcard.h"
-
-/* Example: Mapping of physical drive number for each drive */
-//#define DEV_FLASH	0	/* Map FTL to physical drive 0 */
-//#define DEV_MMC		1	/* Map MMC/SD card to physical drive 1 */
-//#define DEV_USB		2	/* Map USB MSD to physical drive 2 */
 
 #define DEV_FLASH       0
 #define DEV_SDCARD      1
