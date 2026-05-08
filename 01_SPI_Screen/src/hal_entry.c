@@ -2,7 +2,6 @@
 #include <stdio.h>
 #include <string.h>
 #include "UART_debug/uart_debug.h"
-#include "Sys_time/sys_time.h"
 #include "Screen/screen_ui.h"
 
 bool printf_screen = false;

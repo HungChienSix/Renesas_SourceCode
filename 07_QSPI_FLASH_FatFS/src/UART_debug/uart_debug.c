@@ -1,6 +1,7 @@
 /* V1.0 UART_Debug */
 
-#include "UART_Debug/uart_debug.h"
+#include "UART_debug/uart_debug.h"
+#include <string.h>
 #include <stdbool.h>
 
 fsp_err_t UART_debug_Init()
@@ -88,6 +89,27 @@ void UART_debug_callback (uart_callback_args_t * p_args)
     }
 }
 
+
+/* 解析命令 - 格式: :cmd arg\r\n */
+void UART_debug_ParseCommand(const char* cmd_str, UART_CmdInfo_t* cmd_info)
+{
+    /* 初始化输出参数 */
+    memset(cmd_info, 0, sizeof(UART_CmdInfo_t));
+    cmd_info->valid = false;
+
+    if (cmd_str == NULL || strlen(cmd_str) == 0)
+    {
+        return;
+    }
+
+    /* 解析命令格式: cmd arg */
+    int n = sscanf(cmd_str, "%31s %31s", cmd_info->cmd, cmd_info->arg);
+
+    if (n >= 1)
+    {
+        cmd_info->valid = true;
+    }
+}
 
 #if defined __GNUC__ && !defined __clang__
 int _write(int fd, char *pBuffer, int size); 

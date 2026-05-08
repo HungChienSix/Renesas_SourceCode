@@ -1,52 +1,24 @@
 #include "mpu6050.h"
+#include "mpu6050_port.h"
 #include <string.h>
 
-/* I2C传输完成标志 */
-volatile bool i2c_receive_complete_flag = false;
-volatile bool i2c_send_complete_flag = false;
+/* 获取平台接口 */
+static const mpu6050_port_t * s_port = NULL;
 
-/* I2C主模式回调函数 */
-void sci_i2c_master_callback(i2c_master_callback_args_t *p_args)
-{
-    switch (p_args->event)
-    {
-        case I2C_MASTER_EVENT_RX_COMPLETE:
-        {
-            i2c_receive_complete_flag  = true;
-            break;
-        }
-        case I2C_MASTER_EVENT_TX_COMPLETE:
-        {
-            i2c_send_complete_flag  = true;
-            break;
-        }
-        default:
-            break;
-    }
-}
-
-/* 阻塞式I2C写 */
+/* 阻塞式I2C写 - 使用平台接口 */
 static uint8_t mpu_i2c_write(uint8_t *buf, uint8_t len, bool restart)
 {
-    i2c_send_complete_flag = false;
-    fsp_err_t err = R_SCI_I2C_Write(&g_i2c0_ctrl, buf, len, restart);
-    if (err != FSP_SUCCESS)
-        return err;
-    while (!i2c_send_complete_flag)
-        ;
-    return err;
+    if (s_port == NULL || s_port->i2c_write == NULL)
+        return 1;
+    return s_port->i2c_write(buf, len, restart);
 }
 
-/* 阻塞式I2C读 */
+/* 阻塞式I2C读 - 使用平台接口 */
 static uint8_t mpu_i2c_read(uint8_t *buf, uint8_t len, bool restart)
 {
-    i2c_receive_complete_flag = false;
-    fsp_err_t err = R_SCI_I2C_Read(&g_i2c0_ctrl, buf, len, restart);
-    if (err != FSP_SUCCESS)
-        return err;
-    while (!i2c_receive_complete_flag)
-        ;
-    return err;
+    if (s_port == NULL || s_port->i2c_read == NULL)
+        return 1;
+    return s_port->i2c_read(buf, len, restart);
 }
 
 /**********************************************
@@ -59,8 +31,11 @@ uint8_t MPU_Init(void)
 {
     uint8_t res;
 
-    fsp_err_t err = R_SCI_I2C_Open(&g_i2c0_ctrl, &g_i2c0_cfg);
-    if (err != FSP_SUCCESS)
+    /* 获取平台接口 */
+    s_port = mpu6050_port_get();
+
+    /* 初始化硬件平台 */
+    if (mpu6050_port_init() != 0)
         return 1;
 
     MPU_Write_Byte(MPU_PWR_MGMT1_REG, 0X80);

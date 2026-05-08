@@ -67,6 +67,7 @@ typedef enum SCREEN_Mode {
 ```c
 fsp_err_t ST7735_Hardware_Init(void);  // SPI硬件初始化
 fsp_err_t ST7735_Init(void);           // ST7735控制器初始化
+void ST7735_Reset(void);               // 复位ST7735
 ```
 
 **初始化顺序：**
@@ -647,7 +648,7 @@ SCREEN_DrawSwitch(&sw);
 ```
 
 **视觉效果：**
-- `value == false`：灰色轨道，左侧白色圆形滑块
+- `value == false`：灰色轨道（`track_color`），左侧白色圆形滑块
 - `value == true`：绿色轨道，右侧白色圆形滑块
 
 ### 8.5 滑动条 (Slider)

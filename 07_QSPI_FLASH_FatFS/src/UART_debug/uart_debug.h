@@ -17,13 +17,22 @@
 
 #define CMD_BUFFER_SIZE 64
 
+/* 解析命令结构体 */
+typedef struct {
+    char cmd[CMD_BUFFER_SIZE/2];      /* 命令名称 */
+    char arg[CMD_BUFFER_SIZE/2];      /* 命令参数 */
+    bool valid;        /* 解析是否成功 */
+} UART_CmdInfo_t;
+
+/* 函数声明 */
 fsp_err_t UART_debug_Init();
 fsp_err_t UART_debug_DeInit();
-
-/* 主函数轮询来获取命令 */
 const char* UART_debug_GetCmdBuffer(void);
 void UART_debug_ClearCmdBuffer(void);
 bool UART_debug_HasCommand(void);
+
+/* 解析命令 - 格式: :cmd arg\r\n, 通过指针返回结果避免栈复制 */
+void UART_debug_ParseCommand(const char* cmd_str, UART_CmdInfo_t* cmd_info);
 
 /* 函数声明 防止编译器警告 */
 int _isatty(int fd);

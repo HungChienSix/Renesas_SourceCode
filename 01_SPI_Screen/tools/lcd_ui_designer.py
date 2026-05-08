@@ -43,19 +43,19 @@ def color_name(val):
 # ---------------------------------------------------------------------------
 # 字体 & 组件类型定义
 # ---------------------------------------------------------------------------
-ASCII_FONTS = ["Font_8x16_consolas", "Font_8x12_consolas",
-               "Font_8x16_serif", "Font_8x12_serif"]
+ASCII_FONTS = ["Font_8x16_consola", "Font_8x12_consola",
+               "Font_8x16_times", "Font_8x12_times"]
 UTF_FONTS = ["NULL", "Font_UTF_16x16_YuMincho", "Font_UTF_16x12_YuMincho"]
 
 FONT_W = {
-    "Font_8x16_consolas": 8, "Font_8x12_consolas": 8,
-    "Font_8x16_serif": 8, "Font_8x12_serif": 8,
+    "Font_8x16_consola": 8, "Font_8x12_consola": 8,
+    "Font_8x16_times": 8, "Font_8x12_times": 8,
     "Font_UTF_16x16_YuMincho": 16, "Font_UTF_16x12_YuMincho": 16,
     "NULL": 0,
 }
 FONT_H = {
-    "Font_8x16_consolas": 16, "Font_8x12_consolas": 12,
-    "Font_8x16_serif": 16, "Font_8x12_serif": 12,
+    "Font_8x16_consola": 16, "Font_8x12_consola": 12,
+    "Font_8x16_times": 16, "Font_8x12_times": 12,
     "Font_UTF_16x16_YuMincho": 16, "Font_UTF_16x12_YuMincho": 12,
     "NULL": 0,
 }
@@ -94,20 +94,39 @@ class UIComponent:
         if comp_type == "button":
             self.props = {
                 "location": [cx, cy], "frame": [30, 14, 3],
-                "label": "OK", "ascii_font": "Font_8x12_consolas",
+                "label": "OK", "ascii_font": "Font_8x12_consola",
                 "hz_font": "NULL", "color": [0x07E0, 0x0000, 0xFFFF],
                 "state": 0x00,
             }
         elif comp_type == "tooltip":
             self.props = {
                 "location": [cx, cy], "frame": [48, 12],
-                "text": "Tip", "ascii_font": "Font_8x12_consolas",
+                "text": "Tip", "ascii_font": "Font_8x12_consola",
                 "hz_font": "NULL", "color": [0xF800, 0xFFFF],
             }
         elif comp_type == "progressbar":
             self.props = {
                 "location": [cx, cy], "frame": [40, 8],
                 "color": [0xF800, 0x07E0], "progress": 75,
+            }
+        elif comp_type == "switch":
+            self.props = {
+                "location": [cx, cy], "width": 50, "height": 26,
+                "track_color": 0x6E6E, "thumb_color": 0xFFFF, "value": False,
+            }
+        elif comp_type == "slider":
+            self.props = {
+                "location": [cx, cy], "width": 100, "height": 20,
+                "track_color": 0x6E6E, "thumb_color": 0xFFFF,
+                "progress_color": 0x07E0, "min_value": 0,
+                "max_value": 100, "current_value": 50,
+            }
+        elif comp_type == "listitem":
+            self.props = {
+                "location": [cx, cy], "width": 120, "height": 22,
+                "text": "List Item", "font": "Font_8x16_consola",
+                "bg_color": 0x0000, "text_color": 0xFFFF,
+                "border_color": 0x6E6E, "selected": False, "show_border": True,
             }
         # ---------- 基本图形 ----------
         elif comp_type == "rect_solid":
@@ -149,7 +168,7 @@ class UIComponent:
         elif comp_type == "label":
             self.props = {
                 "location": [cx, cy], "text": "Text",
-                "ascii_font": "Font_8x12_consolas", "color": [0xFFFF],
+                "ascii_font": "Font_8x12_consola", "color": [0xFFFF],
             }
 
     # ---------- 边界计算 ----------
@@ -162,6 +181,13 @@ class UIComponent:
             w, h = p["frame"][0], p["frame"][1]
             return (loc[0] - w // 2, loc[1] - h // 2,
                     loc[0] + w // 2, loc[1] + h // 2)
+        elif t in ("switch", "slider"):
+            w, h = p["width"], p["height"]
+            return (loc[0] - w // 2, loc[1] - h // 2,
+                    loc[0] + w // 2, loc[1] + h // 2)
+        elif t == "listitem":
+            w, h = p["width"], p["height"]
+            return (loc[0], loc[1], loc[0] + w, loc[1] + h)
         elif t in ("rect_solid", "rect_hollow"):
             w, h = p["frame"][0], p["frame"][1]
             return (loc[0] - w // 2, loc[1] - h // 2,
@@ -200,6 +226,9 @@ class UIComponent:
             "button":       lambda: f'Button "{p["label"]}"',
             "tooltip":      lambda: f'Tooltip "{p["text"]}"',
             "progressbar":  lambda: f'ProgressBar {p["progress"]}%',
+            "switch":       lambda: f'Switch {"ON" if p["value"] else "OFF"}',
+            "slider":       lambda: f'Slider {p["current_value"]}',
+            "listitem":     lambda: f'ListItem "{p["text"]}"',
             "rect_solid":   lambda: f'RectFill {p["frame"][0]}x{p["frame"][1]}',
             "rect_hollow":  lambda: f'RectEdge {p["frame"][0]}x{p["frame"][1]}',
             "rrect_solid":  lambda: f'RRectFill {p["frame"][0]}x{p["frame"][1]}',
@@ -359,13 +388,13 @@ class LCDCanvas:
         p = comp.props
         loc = p["location"]
         sx, sy = loc[0] * s, loc[1] * s
-        color = rgb565_to_hex(p["color"][0])
         lw = max(1, s // 2)
 
         # --- 矩形类 (location = center) ---
-        if t in ("rect_solid", "rect_hollow", "rrect_solid", "rrect_hollow",
-                 "button", "progressbar", "tooltip"):
+        if t in ("rect_solid", "rect_hollow", "rrect_solid", "rrect_hollow", "button", "progressbar", "tooltip"):
             x0, y0, x1, y1 = comp.get_bounds()
+            if t in ("rect_solid", "rect_hollow", "rrect_solid", "rrect_hollow"):
+                color = rgb565_to_hex(p["color"][0])
             # tooltip 阴影偏移修正
             if t == "tooltip":
                 x1 -= 2
@@ -437,14 +466,85 @@ class LCDCanvas:
                     if len(fpts) >= 6:
                         self.canvas.create_polygon(fpts, fill=fill_c, outline="", tags="comp")
 
+            # --- Switch ---
+            elif t == "switch":
+                sw = p["width"] * s
+                sh = p["height"] * s
+                rx = sx - sw // 2
+                ry = sy - sh // 2
+                r = sh // 2
+                track_c = rgb565_to_hex(0x07E0 if p["value"] else 0x6E6E)
+                thumb_c = rgb565_to_hex(p["thumb_color"])
+                pts = rounded_rect_points(rx, ry, rx + sw, ry + sh, r)
+                if len(pts) >= 6:
+                    self.canvas.create_polygon(pts, fill=track_c, outline="", tags="comp")
+                tr = r - 2 * s
+                offset = (sw // 2 - r) * (1 if p["value"] else -1)
+                tx = sx + offset
+                ty = sy
+                self.canvas.create_arc(tx - tr, ty - tr, tx + tr, ty + tr,
+                                        start=0, extent=360, style="pieslice",
+                                        fill=thumb_c, outline="", tags="comp")
+
+            # --- Slider ---
+            elif t == "slider":
+                sl = p["width"] * s
+                sh = p["height"] * s
+                rx = sx - sl // 2
+                ry = sy - sh // 2
+                r = sh // 2
+                track_c = rgb565_to_hex(p["track_color"])
+                prog_c = rgb565_to_hex(p["progress_color"])
+                thumb_c = rgb565_to_hex(p["thumb_color"])
+                pts = rounded_rect_points(rx, ry, rx + sl, ry + sh, r)
+                if len(pts) >= 6:
+                    self.canvas.create_polygon(pts, fill=track_c, outline="", tags="comp")
+                rng = p["max_value"] - p["min_value"]
+                if rng <= 0: rng = 1
+                prog = (p["current_value"] - p["min_value"]) * (sl - 2 * s) // rng
+                if prog > 0:
+                    fx0, fy0 = rx + s, ry + s
+                    fx1, fy1 = fx0 + prog, ry + sh - s
+                    fpts = rounded_rect_points(fx0, fy0, fx1, fy1, max(0, r - s))
+                    if len(fpts) >= 6:
+                        self.canvas.create_polygon(fpts, fill=prog_c, outline="", tags="comp")
+                tw = sh
+                th = sh - 2 * s
+                tr = th // 2
+                tx0 = sx - tw // 2
+                ty0 = sy - th // 2
+                tpts = rounded_rect_points(tx0, ty0, tx0 + tw, ty0 + th, tr)
+                if len(tpts) >= 6:
+                    self.canvas.create_polygon(tpts, fill=thumb_c, outline="", tags="comp")
+
+            # --- ListItem ---
+            elif t == "listitem":
+                x0, y0 = loc[0] * s, loc[1] * s
+                w, h = p["width"] * s, p["height"] * s
+                bg_c = rgb565_to_hex(p["bg_color"])
+                bd_c = rgb565_to_hex(p["border_color"])
+                self.canvas.create_rectangle(x0, y0, x0 + w, y0 + h,
+                                             fill=bg_c, outline=bd_c, width=lw, tags="comp")
+                fn = p["font"]
+                fs = max(7, FONT_H.get(fn, 12) * s // 2)
+                text_c = rgb565_to_hex(p["text_color"])
+                self.canvas.create_text(x0 + 4 * s, y0 + h // 2,
+                                        text=p["text"], fill=text_c, anchor="w",
+                                        font=("Consolas", fs), tags="comp")
+                if p["selected"]:
+                    self.canvas.create_rectangle(x0, y0, x0 + 3 * s, y0 + h,
+                                                  fill=text_c, outline="", tags="comp")
+
         # --- 直线 ---
         elif t == "line":
+            color = rgb565_to_hex(p["color"][0])
             ex, ey = p["end"]
             self.canvas.create_line(sx, sy, ex * s, ey * s,
                                     fill=color, width=lw, tags="comp")
 
         # --- 圆弧 ---
         elif t == "circle":
+            color = rgb565_to_hex(p["color"][0])
             r = p["radius"] * s
             mask = p["quadrant"]
             for q, (qx, qy, sa, ea) in [
@@ -458,6 +558,7 @@ class LCDCanvas:
 
         # --- 扇形 ---
         elif t == "sector":
+            color = rgb565_to_hex(p["color"][0])
             r = p["radius"] * s
             mask = p["quadrant"]
             for q, (qx, qy, sa, ea) in [
@@ -471,6 +572,7 @@ class LCDCanvas:
 
         # --- 文本标签 ---
         elif t == "label":
+            color = rgb565_to_hex(p["color"][0])
             fn = p["ascii_font"]
             fs = max(7, FONT_H.get(fn, 12) * s // 2)
             self.canvas.create_text(sx, sy, text=p["text"], fill=color,
@@ -567,6 +669,43 @@ class PropertyPanel:
             row = self._color(row, "Border Color", "color", 0)
             row = self._color(row, "Fill Color", "color", 1)
             row = self._scale(row, "Progress", "progress", 0, 100)
+
+        elif t == "switch":
+            row = self._spin(row, "Center X", "location", 0)
+            row = self._spin(row, "Center Y", "location", 1)
+            row = self._spin(row, "Width", "width", None, 1, 255)
+            row = self._spin(row, "Height", "height", None, 1, 255)
+            row = self._color(row, "Track Color", "track_color", None)
+            row = self._color(row, "Thumb Color", "thumb_color", None)
+            row = self._opt(row, "Value", "value",
+                            [("OFF (false)", False), ("ON (true)", True)])
+
+        elif t == "slider":
+            row = self._spin(row, "Center X", "location", 0)
+            row = self._spin(row, "Center Y", "location", 1)
+            row = self._spin(row, "Width", "width", None, 1, 255)
+            row = self._spin(row, "Height", "height", None, 1, 255)
+            row = self._color(row, "Track Color", "track_color", None)
+            row = self._color(row, "Thumb Color", "thumb_color", None)
+            row = self._color(row, "Progress Color", "progress_color", None)
+            row = self._spin(row, "Min Value", "min_value", None, -32768, 32767)
+            row = self._spin(row, "Max Value", "max_value", None, -32768, 32767)
+            row = self._spin(row, "Current Value", "current_value", None, -32768, 32767)
+
+        elif t == "listitem":
+            row = self._spin(row, "X", "location", 0)
+            row = self._spin(row, "Y", "location", 1)
+            row = self._spin(row, "Width", "width", None, 1, 255)
+            row = self._spin(row, "Height", "height", None, 1, 255)
+            row = self._entry(row, "Text", "text")
+            row = self._opt(row, "Font", "font", ASCII_FONTS)
+            row = self._color(row, "BG Color", "bg_color", None)
+            row = self._color(row, "Text Color", "text_color", None)
+            row = self._color(row, "Border Color", "border_color", None)
+            row = self._opt(row, "Selected", "selected",
+                            [("No", False), ("Yes", True)])
+            row = self._opt(row, "Show Border", "show_border",
+                            [("No", False), ("Yes", True)])
 
         # ===== 基本图形 =====
         elif t in ("rect_solid", "rect_hollow"):
@@ -689,7 +828,10 @@ class PropertyPanel:
 
     def _color(self, row, label, prop_key, idx):
         tk.Label(self.inner, text=label).grid(row=row, column=0, sticky="w", padx=4, pady=1)
-        val = self.comp.props[prop_key][idx]
+        if idx is None:
+            val = self.comp.props[prop_key]
+        else:
+            val = self.comp.props[prop_key][idx]
         btn = tk.Button(self.inner, bg=rgb565_to_hex(val), width=3, relief="solid",
                         command=lambda: self._pick_color(prop_key, idx))
         btn.grid(row=row, column=1, sticky="w", padx=2, pady=1)
@@ -729,7 +871,10 @@ class PropertyPanel:
 
     # ---------- 颜色选择器 ----------
     def _pick_color(self, prop_key, idx):
-        current = self.comp.props[prop_key][idx]
+        if idx is None:
+            current = self.comp.props[prop_key]
+        else:
+            current = self.comp.props[prop_key][idx]
         top = tk.Toplevel(self.app.root)
         top.title("Pick Color")
         top.resizable(False, False)
@@ -792,7 +937,10 @@ class PropertyPanel:
         row += 1
 
         def _on_close():
-            self.comp.props[prop_key][idx] = chosen[0]
+            if idx is None:
+                self.comp.props[prop_key] = chosen[0]
+            else:
+                self.comp.props[prop_key][idx] = chosen[0]
             self.app.canvas.redraw()
             self.show(self.comp)
             top.destroy()
@@ -820,6 +968,9 @@ UI_TYPES = [
     ("button",       "Button"),
     ("tooltip",      "Tooltip"),
     ("progressbar",  "ProgBar"),
+    ("switch",       "Switch"),
+    ("slider",       "Slider"),
+    ("listitem",     "ListItem"),
 ]
 
 
@@ -1037,6 +1188,49 @@ class LCDUIDesignerApp:
                 lines.append(f"    .progress = {p['progress']}")
                 lines.append("};")
                 lines.append(f"SCREEN_DrawProgressBar(&ui_bar_{n});")
+
+            elif t == "switch":
+                lines.append(f"/* Switch: {'ON' if p['value'] else 'OFF'} */")
+                lines.append(f"struUI_Switch_t ui_sw_{n} = {{")
+                lines.append(f"    .location = {{{loc[0]}, {loc[1]}}},")
+                lines.append(f"    .width = {p['width']},")
+                lines.append(f"    .height = {p['height']},")
+                lines.append(f"    .track_color = {color_name(p['track_color'])},")
+                lines.append(f"    .thumb_color = {color_name(p['thumb_color'])},")
+                lines.append(f"    .value = {'true' if p['value'] else 'false'}")
+                lines.append("};")
+                lines.append(f"SCREEN_DrawSwitch(&ui_sw_{n});")
+
+            elif t == "slider":
+                lines.append(f"/* Slider: {p['current_value']} */")
+                lines.append(f"struUI_Slider_t ui_sl_{n} = {{")
+                lines.append(f"    .location = {{{loc[0]}, {loc[1]}}},")
+                lines.append(f"    .width = {p['width']},")
+                lines.append(f"    .height = {p['height']},")
+                lines.append(f"    .track_color = {color_name(p['track_color'])},")
+                lines.append(f"    .thumb_color = {color_name(p['thumb_color'])},")
+                lines.append(f"    .progress_color = {color_name(p['progress_color'])},")
+                lines.append(f"    .min_value = {p['min_value']},")
+                lines.append(f"    .max_value = {p['max_value']},")
+                lines.append(f"    .current_value = {p['current_value']}")
+                lines.append("};")
+                lines.append(f"SCREEN_DrawSlider(&ui_sl_{n});")
+
+            elif t == "listitem":
+                lines.append(f"/* ListItem: {p['text']} */")
+                lines.append(f"struUI_ListItem_t ui_item_{n} = {{")
+                lines.append(f"    .location = {{{loc[0]}, {loc[1]}}},")
+                lines.append(f"    .width = {p['width']},")
+                lines.append(f"    .height = {p['height']},")
+                lines.append(f"    .text = \"{p['text']}\",")
+                lines.append(f"    .font = &{p['font']},")
+                lines.append(f"    .bg_color = {color_name(p['bg_color'])},")
+                lines.append(f"    .text_color = {color_name(p['text_color'])},")
+                lines.append(f"    .border_color = {color_name(p['border_color'])},")
+                lines.append(f"    .selected = {'true' if p['selected'] else 'false'},")
+                lines.append(f"    .show_border = {'true' if p['show_border'] else 'false'}")
+                lines.append("};")
+                lines.append(f"SCREEN_DrawListItem(&ui_item_{n});")
 
             elif t == "rect_solid":
                 w, h = p["frame"][0], p["frame"][1]

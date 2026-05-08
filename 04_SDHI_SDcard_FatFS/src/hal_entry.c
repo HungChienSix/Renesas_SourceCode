@@ -2,9 +2,7 @@
 #include <stdio.h>
 #include <string.h>
 #include "UART_debug/uart_debug.h"
-#include "sys_time/sys_time.h"
 #include "FatFS/ff.h"
-#include "SDHI_SDcard/sdhi_sdcard.h"
 
 /* FatFS R0.16 | SD卡需预格式化为 FAT32 | 配置见 ffconf.h */
 
