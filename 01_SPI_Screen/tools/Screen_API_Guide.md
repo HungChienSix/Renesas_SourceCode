@@ -54,9 +54,10 @@ typedef enum SCREEN_Mode {
 ### 头文件引用
 
 ```c
-#include "screen.h"       // 绘图 API
-#include "screen_ui.h"    // UI 组件 API
-#include "fonts.h"        // 字体定义和资源声明
+#include "st7735.h"      // ST7735 控制器驱动
+#include "screen.h"      // 绘图 API
+#include "screen_ui.h"   // UI 组件 API
+#include "fonts.h"       // 字体定义和资源声明
 ```
 
 ---
@@ -64,13 +65,19 @@ typedef enum SCREEN_Mode {
 ## 2. 初始化
 
 ```c
-void SCREEN_Init(void);
+fsp_err_t ST7735_Hardware_Init(void);  // SPI硬件初始化
+fsp_err_t ST7735_Init(void);           // ST7735控制器初始化
 ```
 
-初始化 SPI 接口、复位 ST7735、配置寄存器、清屏为黑色。**必须在所有绘图函数之前调用。**
+**初始化顺序：**
+1. `ST7735_Hardware_Init()` - 初始化 SPI 接口
+2. `ST7735_Init()` - 复位 ST7735、配置寄存器、清屏
+
+**必须在所有绘图函数之前调用。**
 
 ```c
-SCREEN_Init();
+ST7735_Hardware_Init();
+ST7735_Init();
 // 此后可以开始绘图
 ```
 
@@ -104,8 +111,8 @@ SCREEN_Init();
 
 ```c
 // 从 RGB888 (0-255) 转换为 RGB565
-SCREEN_Pixel_t orange = SCREEN_COLOR565(255, 165, 0);   // 橙色
-SCREEN_Pixel_t gray   = SCREEN_COLOR565(128, 128, 128); // 灰色
+ST7735_Pixel_t orange = SCREEN_COLOR565(255, 165, 0);   // 橙色
+ST7735_Pixel_t gray   = SCREEN_COLOR565(128, 128, 128); // 灰色
 ```
 
 宏定义：
@@ -120,7 +127,7 @@ SCREEN_Pixel_t gray   = SCREEN_COLOR565(128, 128, 128); // 灰色
 ### 4.1 画点
 
 ```c
-SCREEN_Event_t SCREEN_DrawPixel(int16_t x, int16_t y, SCREEN_Pixel_t color, SCREEN_Mode_t mode);
+SCREEN_Event_t SCREEN_DrawPixel(int16_t x, int16_t y, ST7735_Pixel_t color, SCREEN_Mode_t mode);
 ```
 
 | 参数 | 说明 |
@@ -135,7 +142,7 @@ SCREEN_Event_t SCREEN_DrawPixel(int16_t x, int16_t y, SCREEN_Pixel_t color, SCRE
 
 ```c
 SCREEN_Event_t SCREEN_DrawLine(int16_t x0, int16_t x1, int16_t y0, int16_t y1,
-                                SCREEN_Pixel_t color, SCREEN_Mode_t mode);
+                                ST7735_Pixel_t color, SCREEN_Mode_t mode);
 ```
 
 使用 Bresenham 算法，支持任意方向。参数为两个端点坐标 `(x0,y0)` 和 `(x1,y1)`。
@@ -152,10 +159,10 @@ SCREEN_DrawLine(0, 127, 0, 127, SCREEN_RED, SCREEN_Nor);
 ```c
 // 实心矩形
 SCREEN_Event_t SCREEN_DrawRectSolid(int16_t x0, int16_t x1, int16_t y0, int16_t y1,
-                                     SCREEN_Pixel_t color, SCREEN_Mode_t mode);
+                                     ST7735_Pixel_t color, SCREEN_Mode_t mode);
 // 空心矩形
 SCREEN_Event_t SCREEN_DrawRectHollow(int16_t x0, int16_t x1, int16_t y0, int16_t y1,
-                                      SCREEN_Pixel_t color, SCREEN_Mode_t mode);
+                                      ST7735_Pixel_t color, SCREEN_Mode_t mode);
 ```
 
 | 参数 | 说明 |
@@ -175,10 +182,10 @@ SCREEN_DrawRectHollow(10, 50, 20, 60, SCREEN_WHITE, SCREEN_Nor);
 ```c
 // 实心圆角矩形
 SCREEN_Event_t SCREEN_DrawRoundRectSolid(int16_t x0, int16_t x1, int16_t y0, int16_t y1,
-                                          uint8_t radius, SCREEN_Pixel_t color, SCREEN_Mode_t mode);
+                                          uint8_t radius, ST7735_Pixel_t color, SCREEN_Mode_t mode);
 // 空心圆角矩形
 SCREEN_Event_t SCREEN_DrawRoundRectHollow(int16_t x0, int16_t x1, int16_t y0, int16_t y1,
-                                           uint8_t radius, SCREEN_Pixel_t color, SCREEN_Mode_t mode);
+                                           uint8_t radius, ST7735_Pixel_t color, SCREEN_Mode_t mode);
 ```
 
 | 参数 | 说明 |
@@ -196,10 +203,10 @@ SCREEN_DrawRoundRectSolid(10, 70, 30, 50, 5, SCREEN_GREEN, SCREEN_Nor);
 ```c
 // 圆弧（轮廓线）
 SCREEN_Event_t SCREEN_DrawQuarArc(int16_t cx, int16_t cy, uint16_t r,
-                                   uint8_t quadrant_mask, SCREEN_Pixel_t color, SCREEN_Mode_t mode);
+                                   uint8_t quadrant_mask, ST7735_Pixel_t color, SCREEN_Mode_t mode);
 // 扇形（填充）
 SCREEN_Event_t SCREEN_DrawQuarSector(int16_t cx, int16_t cy, uint16_t r,
-                                      uint8_t quadrant_mask, SCREEN_Pixel_t color, SCREEN_Mode_t mode);
+                                      uint8_t quadrant_mask, ST7735_Pixel_t color, SCREEN_Mode_t mode);
 ```
 
 | 参数 | 说明 |
@@ -228,6 +235,152 @@ SCREEN_DrawQuarSector(64, 64, 30, 0x01|0x02, SCREEN_CYAN, SCREEN_Nor);
 SCREEN_DrawQuarArc(64, 64, 20, SCREEN_Quarter1, SCREEN_YELLOW, SCREEN_Nor);
 ```
 
+### 4.6 绘制函数原理与流程
+
+#### 4.6.1 像素绘制流程
+
+所有绘图函数遵循相同的底层流程：
+
+```
+用户调用绘图函数
+       │
+       ▼
+┌──────────────────┐
+│ 参数校验          │ ← 检查坐标、指针等是否有效
+│ (x, y 在有效范围?) │
+└────────┬─────────┘
+         │
+         ▼
+┌──────────────────┐
+│ 写入帧缓冲区      │ ← 写入 display_ram[y][x]
+│ (根据 mode 计算)   │
+└────────┬─────────┘
+         │
+         ▼
+┌──────────────────┐
+│ 标记脏区域        │ ← 记录变化的行范围
+│ (row_min ~ row_max)│
+└────────┬─────────┘
+         │
+         ▼
+      返回结果
+```
+
+#### 4.6.2 绘制模式详解
+
+```c
+typedef enum SCREEN_Mode {
+    SCREEN_Nor = 0x00,  // 正常模式：直接写入新颜色
+    SCREEN_Xor,         // 异或模式：新颜色与原有颜色异或
+} SCREEN_Mode_t;
+```
+
+**Normal 模式（正常覆盖）：**
+- 直接将 `color` 写入像素位置
+- `pixel = color`
+
+**Xor 模式（异或模式）：**
+- 将 `color` 与原有像素进行异或运算
+- `pixel = pixel ^ color`
+- 用于高亮/反显：相同颜色绘制两次会恢复原色
+
+```c
+// 高亮文字示例
+SCREEN_DrawString(10, 10, "Hello", font, SCREEN_WHITE, SCREEN_Nor);   // 正常绘制
+SCREEN_DrawString(10, 10, "Hello", font, SCREEN_WHITE, SCREEN_Xor);  // 相同位置异或 = 消除
+```
+
+#### 4.6.3 直线算法（Bresenham）
+
+`SCREEN_DrawLine` 使用 Bresenham 算法绘制直线，避免浮点运算：
+
+```
+核心思想：每一步选择最近的像素点
+
+起点 (x0, y0) → 终点 (x1, y1)
+
+计算决策参数：
+  d = (y1 - y0) * 2 - (x1 - x0)
+
+每一步：
+  if (d > 0) {
+      画 (x, y)
+      y++          // 向上移动
+      d += 2 * (dy - dx)
+  } else {
+      x++          // 向右移动
+      d += 2 * dy
+  }
+```
+
+#### 4.6.4 圆弧算法（Bresenham）
+
+`SCREEN_DrawQuarArc` 使用八分法圆弧：
+
+```
+1. 先画第一象限的 1/8 圆弧（Bresenham）
+2. 利用对称性映射到其他 7 个 1/8 弧
+
+对称关系：
+  (x, y) → (-x, y) → (x, -y) → (-x, -y)
+         → (y, x) → (-y, x) → (y, -x) → (-y, -x)
+```
+
+象限掩码控制只绘制特定部分：
+- `0x01` (0001): 绘制象限1（右上）
+- `0x02` (0010): 绘制象限2（左上）
+- `0x04` (0100): 绘制象限3（左下）
+- `0x08` (1000): 绘制象限4（右下）
+
+#### 4.6.5 圆角矩形原理
+
+圆角矩形 = 矩形主体 + 四个圆角
+
+```
+┌────────────────────────────┐
+│    ┌──┐          ┌──┐    │  ← 顶部圆角
+│    │  │          │  │    │
+├────┘  └──────────┘  └────┤  ← 中间矩形
+│    └──┐          ┌──┘    │  ← 底部圆角
+│       └──────────┘       │
+└────────────────────────────┘
+```
+
+**绘制步骤：**
+1. 填充矩形主体（排除四个角区域）
+2. 在四个角绘制 1/4 圆弧扇形
+
+#### 4.6.6 字符绘制原理
+
+ASCII 字符绘制：
+```
+1. 从字体数据中定位字符（char_index = ch - ' '）
+2. 定位字符数据位置：
+   font_data += char_index * font->height * font->bytes_per_row
+3. 逐行扫描字体位图
+4. 每位为 1 时绘制对应颜色像素
+```
+
+汉字绘制类似，但使用 3 字节 UTF-8 编码索引汉字表。
+
+#### 4.6.7 分区刷新原理
+
+```
+脏标记跟踪：
+┌─────────────────────────────┐
+│ row_min = 10                │
+│ row_max = 50                │
+│ col_min = 5                 │
+│ col_max = 80                │
+└─────────────────────────────┘
+
+刷新时：
+1. 设置列地址范围：col_min → col_max
+2. 设置行地址范围：row_min → row_max
+3. 只发送脏区域数据，而非全屏 32KB
+4. 发送完毕后清除脏标记
+```
+
 ---
 
 ## 5. 文本绘制
@@ -237,11 +390,11 @@ SCREEN_DrawQuarArc(64, 64, 20, SCREEN_Quarter1, SCREEN_YELLOW, SCREEN_Nor);
 ```c
 SCREEN_Event_t SCREEN_DrawChar(int16_t x, int16_t y, char ch,
                                 const struFont_t *font,
-                                SCREEN_Pixel_t color, SCREEN_Mode_t mode);
+                                ST7735_Pixel_t color, SCREEN_Mode_t mode);
 
 SCREEN_Event_t SCREEN_DrawString(int16_t x, int16_t y, const char *str,
                                   const struFont_t *font,
-                                  SCREEN_Pixel_t color, SCREEN_Mode_t mode);
+                                  ST7735_Pixel_t color, SCREEN_Mode_t mode);
 ```
 
 | 参数 | 说明 |
@@ -253,10 +406,10 @@ SCREEN_Event_t SCREEN_DrawString(int16_t x, int16_t y, const char *str,
 
 ```c
 // 显示字符串
-SCREEN_DrawString(10, 20, "Hello!", &Font_8x12_consolas, SCREEN_WHITE, SCREEN_Nor);
+SCREEN_DrawString(10, 20, "Hello!", &Font_8x12_consola, SCREEN_WHITE, SCREEN_Nor);
 
 // 显示单个字符
-SCREEN_DrawChar(0, 0, 'A', &Font_8x16_consolas, SCREEN_YELLOW, SCREEN_Nor);
+SCREEN_DrawChar(0, 0, 'A', &Font_8x16_consola, SCREEN_YELLOW, SCREEN_Nor);
 ```
 
 > **注意**：`SCREEN_DrawString` 超出屏幕宽度时截断并返回 `SCREEN_OUT`。
@@ -266,7 +419,7 @@ SCREEN_DrawChar(0, 0, 'A', &Font_8x16_consolas, SCREEN_YELLOW, SCREEN_Nor);
 ```c
 SCREEN_Event_t SCREEN_DrawUTFChar(int16_t x, int16_t y, const char *utf8_char,
                                    const struFont_UTF_t *hz_font,
-                                   SCREEN_Pixel_t color, SCREEN_Mode_t mode);
+                                   ST7735_Pixel_t color, SCREEN_Mode_t mode);
 ```
 
 `utf8_char` 指向 3 字节 UTF-8 编码的汉字。
@@ -282,7 +435,7 @@ SCREEN_DrawUTFChar(10, 40, "\xe4\xbd\xa0", &Font_UTF_16x16_YuMincho, SCREEN_RED,
 SCREEN_Event_t SCREEN_DrawUTFString(int16_t x, int16_t y, const char *utf8_str,
                                      const struFont_t *ascii_font,
                                      const struFont_UTF_t *hz_font,
-                                     SCREEN_Pixel_t color, SCREEN_Mode_t mode);
+                                     ST7735_Pixel_t color, SCREEN_Mode_t mode);
 ```
 
 自动识别 ASCII（1字节）和 UTF-8 汉字（3字节），混合绘制。
@@ -290,7 +443,7 @@ SCREEN_Event_t SCREEN_DrawUTFString(int16_t x, int16_t y, const char *utf8_str,
 ```c
 // 混合显示
 SCREEN_DrawUTFString(0, 0, "Hello\xe4\xb8\x96\xe7\x95\x8c",
-                      &Font_8x12_consolas, &Font_UTF_16x16_YuMincho,
+                      &Font_8x12_consola, &Font_UTF_16x16_YuMincho,
                       SCREEN_WHITE, SCREEN_Nor);
 ```
 
@@ -305,7 +458,7 @@ SCREEN_DrawUTFString(0, 0, "Hello\xe4\xb8\x96\xe7\x95\x8c",
 ```c
 SCREEN_Event_t SCREEN_DrawImage(int16_t x, int16_t y, uint16_t width, uint16_t height,
                                  const uint8_t *image,
-                                 SCREEN_Pixel_t color, SCREEN_Mode_t mode);
+                                 ST7735_Pixel_t color, SCREEN_Mode_t mode);
 ```
 
 - 1 位/像素，MSB 在前
@@ -339,7 +492,7 @@ SCREEN_DrawRGBImage(0, 0, 32, 32, gImage_RGB_163music);
 ### 7.1 填充屏幕
 
 ```c
-void SCREEN_FillScreen(SCREEN_Pixel_t color);
+void SCREEN_FillScreen(ST7735_Pixel_t color);
 ```
 
 用指定颜色填满 128x128 帧缓冲区。在分区刷新模式下，只标记实际变化的像素为脏。
@@ -359,7 +512,7 @@ void SCREEN_RefreshScreen_Force(void);
 ```c
 // 1. 绘制内容到帧缓冲区
 SCREEN_FillScreen(SCREEN_BLACK);
-SCREEN_DrawString(10, 10, "Hello", &Font_8x12_consolas, SCREEN_WHITE, SCREEN_Nor);
+SCREEN_DrawString(10, 10, "Hello", &Font_8x12_consola, SCREEN_WHITE, SCREEN_Nor);
 
 // 2. 刷新到 LCD
 uint32_t ms = SCREEN_RefreshScreen();
@@ -388,7 +541,7 @@ typedef struct {
     char         label[32];      // 按钮文字（最多31字符）
     struFont_t  *ascii_font;     // ASCII 字体指针
     struFont_UTF_t *hz_font;     // 汉字字体指针（NULL 则不显示汉字）
-    SCREEN_Pixel_t color[3];     // {边框色, 填充色, 文字色}
+    ST7735_Pixel_t color[3];     // {边框色, 填充色, 文字色}
     uint8_t      state;          // 0x00=未按下(空心)  0xFF=按下(实心)
 } struUI_Button_t;
 
@@ -400,7 +553,7 @@ struUI_Button_t btn = {
     .location   = {64, 100},
     .frame      = {40, 16, 3},
     .label      = "OK",
-    .ascii_font = (struFont_t *)&Font_8x12_consolas,
+    .ascii_font = (struFont_t *)&Font_8x12_consola,
     .hz_font    = NULL,
     .color      = {SCREEN_GREEN, SCREEN_BLACK, SCREEN_YELLOW},
     .state      = 0x00,
@@ -421,7 +574,7 @@ typedef struct {
     char         text[64];       // 提示文字（最多63字符）
     struFont_t  *ascii_font;     // ASCII 字体指针
     struFont_UTF_t *hz_font;     // 汉字字体指针
-    SCREEN_Pixel_t color[2];     // {背景色, 文字色}
+    ST7735_Pixel_t color[2];     // {背景色, 文字色}
 } struUI_Tooltip_t;
 
 SCREEN_Event_t SCREEN_DrawTooltip(struUI_Tooltip_t *tooltip);
@@ -432,7 +585,7 @@ struUI_Tooltip_t tip = {
     .location   = {64, 60},
     .frame      = {60, 16},
     .text       = "Loading...",
-    .ascii_font = (struFont_t *)&Font_8x12_consolas,
+    .ascii_font = (struFont_t *)&Font_8x12_consola,
     .hz_font    = NULL,
     .color      = {SCREEN_BLACK, SCREEN_WHITE},
 };
@@ -466,6 +619,133 @@ SCREEN_DrawProgressBar(&bar);
 
 **视觉效果：** 圆角矩形边框（半径 = 高度/2），内部按百分比填充，留 1px 内边距。
 
+### 8.4 开关 (Switch)
+
+```c
+typedef struct {
+    int8_t       location[2];    // 中心坐标 {x, y}
+    uint8_t      width;          // 开关宽度
+    uint8_t      height;         // 开关高度（通常为宽度的一半）
+    ST7735_Pixel_t track_color; // 轨道颜色（关闭状态）
+    ST7735_Pixel_t thumb_color; // 滑块颜色
+    bool         value;          // 当前状态 false=关 true=开
+} struUI_Switch_t;
+
+SCREEN_Event_t SCREEN_DrawSwitch(struUI_Switch_t *sw);
+```
+
+```c
+struUI_Switch_t sw = {
+    .location    = {64, 30},
+    .width       = 50,
+    .height      = 26,
+    .track_color = 0x6E6E,      // 关闭时灰色
+    .thumb_color = SCREEN_WHITE,
+    .value       = false,
+};
+SCREEN_DrawSwitch(&sw);
+```
+
+**视觉效果：**
+- `value == false`：灰色轨道，左侧白色圆形滑块
+- `value == true`：绿色轨道，右侧白色圆形滑块
+
+### 8.5 滑动条 (Slider)
+
+```c
+typedef struct {
+    int8_t       location[2];    // 中心坐标 {x, y}
+    uint8_t      width;          // 滑动条宽度
+    uint8_t      height;         // 滑动条高度
+    ST7735_Pixel_t track_color;   // 轨道颜色
+    ST7735_Pixel_t thumb_color;    // 滑块颜色
+    ST7735_Pixel_t progress_color;  // 已填充进度颜色
+    int16_t      min_value;      // 最小值
+    int16_t      max_value;      // 最大值
+    int16_t      current_value;  // 当前值
+} struUI_Slider_t;
+
+SCREEN_Event_t SCREEN_DrawSlider(struUI_Slider_t *slider);
+```
+
+```c
+struUI_Slider_t slider = {
+    .location       = {64, 30},
+    .width          = 100,
+    .height         = 20,
+    .track_color    = 0x6E6E,      // 轨道灰色
+    .thumb_color    = SCREEN_WHITE, // 滑块白色
+    .progress_color = SCREEN_GREEN, // 进度绿色
+    .min_value      = 0,
+    .max_value      = 100,
+    .current_value  = 60,
+};
+SCREEN_DrawSlider(&slider);
+```
+
+**视觉效果：** 圆角矩形轨道 + 按比例填充的进度条 + 中央矩形滑块。
+
+### 8.6 列表项 (ListItem)
+
+```c
+typedef struct {
+    int8_t       location[2];    // 左上角坐标 {x, y}
+    uint8_t      width;          // 列表项宽度
+    uint8_t      height;          // 列表项高度
+    char         text[64];       // 列表项文本
+    struFont_t  *font;           // 字体指针
+    ST7735_Pixel_t bg_color;     // 背景颜色
+    ST7735_Pixel_t text_color;   // 文本颜色
+    ST7735_Pixel_t border_color; // 边框颜色（可为透明）
+    bool         selected;       // 是否被选中
+    bool         show_border;    // 是否显示边框
+} struUI_ListItem_t;
+
+SCREEN_Event_t SCREEN_DrawListItem(struUI_ListItem_t *item);
+```
+
+```c
+struUI_ListItem_t item = {
+    .location    = {0, 10},
+    .width       = 120,
+    .height      = 22,
+    .text        = "List Item 1",
+    .font        = &Font_8x16_consola,
+    .bg_color    = SCREEN_BLACK,
+    .text_color  = SCREEN_WHITE,
+    .border_color = 0x6E6E,
+    .selected    = false,
+    .show_border = true,
+};
+SCREEN_DrawListItem(&item);
+```
+
+**视觉效果：**
+- 正常状态：实心背景 + 边框 + 文本
+- 选中状态：左侧3像素指示条 + 文本反色（Xor模式）
+
+### 8.7 UI组件测试
+
+```c
+SCREEN_Event_t SCREEN_DrawUITest(uint8_t index);
+```
+
+根据 index 测试不同组件：
+
+| index | 组件 | 测试内容 |
+|-------|------|---------|
+| 0 | Button | 两个按钮（未按/按下状态） |
+| 1 | Tooltip | 带阴影的文本提示框 |
+| 2 | ProgressBar | 两个不同进度的进度条 |
+| 3 | Switch | 两个开关（关闭/开启状态） |
+| 4 | Slider | 两个不同值的滑块 |
+| 5 | ListItem | 三个列表项（含选中状态） |
+
+```c
+SCREEN_DrawUITest(0);  // 测试Button
+SCREEN_DrawUITest(5);  // 测试ListItem
+```
+
 ---
 
 ## 9. 字体列表
@@ -474,10 +754,10 @@ SCREEN_DrawProgressBar(&bar);
 
 | 变量名 | 尺寸 | 说明 |
 |--------|------|------|
-| `Font_8x16_consolas` | 8 x 16 | 等宽字体，适合代码/数据 |
-| `Font_8x12_consolas` | 8 x 12 | 等宽字体，紧凑 |
-| `Font_8x16_serif` | 8 x 16 | 衬线字体 |
-| `Font_8x12_serif` | 8 x 12 | 衬线字体，紧凑 |
+| `Font_8x16_consola` | 8 x 16 | 等宽字体，适合代码/数据 |
+| `Font_8x12_consola` | 8 x 12 | 等宽字体，紧凑 |
+| `Font_8x16_times` | 8 x 16 | 衬线字体 |
+| `Font_8x12_times` | 8 x 12 | 衬线字体，紧凑 |
 
 ### UTF-8 汉字字体
 
@@ -519,13 +799,14 @@ typedef enum SCREEN_Event {
 
 void hal_entry(void) {
     /* 初始化 */
-    SCREEN_Init();
+    ST7735_Hardware_Init();
+    ST7735_Init();
 
     /* 黑色背景 */
     SCREEN_FillScreen(SCREEN_BLACK);
 
     /* 标题文字 */
-    SCREEN_DrawString(8, 4, "LCD Demo", &Font_8x12_consolas, SCREEN_CYAN, SCREEN_Nor);
+    SCREEN_DrawString(8, 4, "LCD Demo", &Font_8x12_consola, SCREEN_CYAN, SCREEN_Nor);
 
     /* 红色对角线 */
     SCREEN_DrawLine(0, 127, 0, 127, SCREEN_RED, SCREEN_Nor);
@@ -546,7 +827,7 @@ void hal_entry(void) {
         .location   = {64, 90},
         .frame      = {50, 14, 4},
         .label      = "Press",
-        .ascii_font = (struFont_t *)&Font_8x12_consolas,
+        .ascii_font = (struFont_t *)&Font_8x12_consola,
         .hz_font    = NULL,
         .color      = {SCREEN_WHITE, SCREEN_BLUE, SCREEN_WHITE},
         .state      = 0x00,
@@ -578,7 +859,7 @@ void hal_entry(void) {
 
 | 类别 | 函数 | 说明 |
 |------|------|------|
-| 初始化 | `SCREEN_Init()` | 初始化屏幕 |
+| 初始化 | `ST7735_Hardware_Init()` / `ST7735_Init()` | 初始化屏幕 |
 | 画点 | `SCREEN_DrawPixel()` | 绘制单个像素 |
 | 画线 | `SCREEN_DrawLine()` | Bresenham 直线 |
 | 实心矩形 | `SCREEN_DrawRectSolid()` | 填充矩形 |

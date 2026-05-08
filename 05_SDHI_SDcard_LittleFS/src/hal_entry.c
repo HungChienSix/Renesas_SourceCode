@@ -17,8 +17,8 @@ bsp_ipc_semaphore_handle_t g_core_start_semaphore =
 void hal_entry(void)
 {
     /* TODO: add your own code here */
-    SysTime_Init();
     UART_debug_Init();
+    SysTime_Init();
 
     printf("Hello World!\r\n");
 

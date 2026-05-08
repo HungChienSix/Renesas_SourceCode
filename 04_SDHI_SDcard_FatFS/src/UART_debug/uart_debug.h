@@ -11,8 +11,19 @@
 #include <unistd.h>
 #include <errno.h>
 
-/* 串口初始化 */
-void UART_debug_Init(void);
+#define DEBUG_UART_ENABLE     1    
+#define UART_DEBUG_CTRL       g_uart0_ctrl
+#define UART_DEBUG_CFG        g_uart0_cfg
+
+#define CMD_BUFFER_SIZE 64
+
+fsp_err_t UART_debug_Init();
+fsp_err_t UART_debug_DeInit();
+
+/* 主函数轮询来获取命令 */
+const char* UART_debug_GetCmdBuffer(void);
+void UART_debug_ClearCmdBuffer(void);
+bool UART_debug_HasCommand(void);
 
 /* 函数声明 防止编译器警告 */
 int _isatty(int fd);

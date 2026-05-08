@@ -1,9 +1,9 @@
 #include "hal_data.h"
-#include <UART_Debug/uart_debug.h>
-#include <I2C_MPU6050/mpu6050.h>
-#include <I2C_MPU6050/kalman.h>
 #include <stdio.h>
-#include <math.h>
+#include <stdlib.h>
+#include "UART_Debug/uart_debug.h"
+#include "I2C_MPU6050/kalman.h"
+
 
 #if (1 == BSP_MULTICORE_PROJECT) && BSP_TZ_SECURE_BUILD
 bsp_ipc_semaphore_handle_t g_core_start_semaphore =
@@ -19,42 +19,20 @@ bsp_ipc_semaphore_handle_t g_core_start_semaphore =
 void hal_entry(void)
 {
     UART_debug_Init();
-    printf("MPU6050 Test\r\n");
-
-    if (MPU_Init() == 0)
-        printf("MPU6050 Init OK!\r\n");
-    else
-        printf("MPU6050 Init Failed!\r\n");
-
-    short ax, ay, az;
-    short gx, gy, gz;
-
-    kalman_t kf_roll, kf_pitch;
-    kalman_init(&kf_roll);
-    kalman_init(&kf_pitch);
+    Attitude_Init();
 
     const float dt = 0.005f;
 
     while (1)
     {
-        MPU_Get_Accelerometer(&ax, &ay, &az);
-        MPU_Get_Gyroscope(&gx, &gy, &gz);
+        Attitude_Update(dt);
 
-        /* 加速度计计算角度(度) */
-        float acc_roll  = atan2f((float)ay, (float)az) * 57.29578f;
-        float acc_pitch = atan2f(-(float)ax, (float)sqrtf((float)ay * ay + (float)az * az)) * 57.29578f;
-
-        /* 陀螺仪角速度(度/秒), MPU6050 ±2000dps -> 16.4 LSB/(°/s) */
-        float gyro_roll  = (float)gx / 16.4f;
-        float gyro_pitch = (float)gy / 16.4f;
-
-        /* 卡尔曼滤波融合 */
-        float roll  = kalman_update(&kf_roll,  acc_roll,  gyro_roll,  dt);
-        float pitch = kalman_update(&kf_pitch, acc_pitch, gyro_pitch, dt);
+        float roll, pitch;
+        Attitude_Get(&roll, &pitch);
 
         int roll_i  = (int)(roll * 10);
         int pitch_i = (int)(pitch * 10);
-        printf("Roll:%d.%d Pitch:%d.%d\r\n", roll_i / 10, abs(roll_i) % 10, pitch_i / 10, abs(pitch_i) % 10);
+        printf("Roll=%d.%d,Pitch=%d.%d\r\n", roll_i / 10, abs(roll_i) % 10, pitch_i / 10, abs(pitch_i) % 10);
 
         R_BSP_SoftwareDelay(1, BSP_DELAY_UNITS_MILLISECONDS);
     }

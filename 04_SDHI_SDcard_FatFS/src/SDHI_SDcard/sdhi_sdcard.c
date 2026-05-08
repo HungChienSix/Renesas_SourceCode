@@ -1,22 +1,27 @@
 /* V1.0 SDHI_SDcard */
 
 #include "SDHI_SDcard/sdhi_sdcard.h"
-#include "stdio.h"
+#include "sys_time/sys_time.h"
 
 sdmmc_device_t my_sdmmc_device = {0};
 
 /* SDHI SD卡初始化函数 */
-void SDCard_Init(void)
+fsp_err_t SDCard_Init(void)
 {
     fsp_err_t err;
 
-    err = R_SDHI_Open(&g_sdmmc0_ctrl, &g_sdmmc0_cfg);
-    assert(FSP_SUCCESS == err);
+    err = R_SDHI_Open(&SDHI_SDCARD_CTRL, &SDHI_SDCARD_CFG);
+    if(FSP_SUCCESS != err){
+        return err;
+    }
 
-#ifdef CARD_INSERT_DETECT
+#if CARD_INSERT_DETECT_ENABLE
+    sdmmc_status_t status;
         /* 检查卡是否插入 */
-        err = R_SDHI_StatusGet(&g_sdmmc0_ctrl, &status);
-        assert(FSP_SUCCESS == err);
+        err = R_SDHI_StatusGet(&SDHI_SDCARD_CTRL, &status);
+        if(FSP_SUCCESS != err){
+            return err;
+        }
         if (!status.card_inserted)
         {
             /* 等待卡插入中断 */
@@ -35,21 +40,21 @@ void SDCard_Init(void)
     R_BSP_SoftwareDelay(1U, BSP_DELAY_UNITS_MILLISECONDS);
 
     /* 初始化SD卡。在为SD设备插入卡之前，不应执行此操作。 */
-    err = R_SDHI_MediaInit(&g_sdmmc0_ctrl, &my_sdmmc_device);
-    assert(FSP_SUCCESS == err);
+    err = R_SDHI_MediaInit(&SDHI_SDCARD_CTRL, &my_sdmmc_device);
+    return err;
 }
 
 __IO uint32_t g_transfer_complete = 0;
 __IO uint32_t g_card_erase_complete = 0;
 
-#ifdef CARD_INSERT_DETECT
-    __IO bool g_card_inserted = false;
+#if CARD_INSERT_DETECT_ENABLE
+__IO bool g_card_inserted = false;
 #endif
 
 /* 如果启用了卡检测中断，则在发生卡检测事件时调用回调。 */
 void sdhi_callback(sdmmc_callback_args_t *p_args)
 {
-#ifdef CARD_INSERT_DETECT
+#if CARD_INSERT_DETECT_ENABLE
     if (SDMMC_EVENT_CARD_INSERTED == p_args->event)  //卡插入中断
     {
         g_card_inserted = true;
@@ -81,10 +86,13 @@ void sdhi_callback(sdmmc_callback_args_t *p_args)
 uint8_t g_dest[SDHI_MAX_BLOCK_SIZE] BSP_ALIGN_VARIABLE(4);  //4字节对齐
 uint8_t g_src[SDHI_MAX_BLOCK_SIZE]  BSP_ALIGN_VARIABLE(4);
 
-uint8_t SDCard_Read(uint8_t *buff, uint32_t sector, uint32_t count, uint32_t timeout_us)
+SDCard_ERROR_t SDCard_Read(uint8_t *buff, uint32_t sector, uint32_t count, uint32_t timeout_us)
 {
     g_transfer_complete = 0;
-    R_SDHI_Read(&g_sdmmc0_ctrl, buff, sector, count);
+    fsp_err_t err = R_SDHI_Read(&SDHI_SDCARD_CTRL, buff, sector, count);
+    if(FSP_SUCCESS != err){
+        return SDHI_Read_Err;
+    }
 
     while (g_transfer_complete == 0 && timeout_us > 0)
     {
@@ -94,19 +102,19 @@ uint8_t SDCard_Read(uint8_t *buff, uint32_t sector, uint32_t count, uint32_t tim
 
     if (g_transfer_complete != 1)
     {
-        printf("[FatFS] SD卡读取失败\r\n");
-        g_transfer_complete = 0;
-        return 1;
+        return SDHI_Read_Timeout;
     }
 
-    g_transfer_complete = 0;
-    return 0;
+    return SDHI_OK;
 }
 
-uint8_t SDCard_Write(const uint8_t *buff, uint32_t sector, uint32_t count, uint32_t timeout_us)
+SDCard_ERROR_t SDCard_Write(const uint8_t *buff, uint32_t sector, uint32_t count, uint32_t timeout_us)
 {
     g_transfer_complete = 0;
-    R_SDHI_Write(&g_sdmmc0_ctrl, buff, sector, count);
+    fsp_err_t err = R_SDHI_Write(&SDHI_SDCARD_CTRL, buff, sector, count);
+    if(FSP_SUCCESS != err){
+        return SDHI_Write_Err;
+    }
 
     while (g_transfer_complete == 0 && timeout_us > 0)
     {
@@ -116,138 +124,46 @@ uint8_t SDCard_Write(const uint8_t *buff, uint32_t sector, uint32_t count, uint3
 
     if (g_transfer_complete != 1)
     {
-        printf("[FatFS] SD卡写入失败\r\n");
-        g_transfer_complete = 0;
-        return 1;
+        return SDHI_Write_Timeout;
     }
 
-    g_transfer_complete = 0;
-    return 0;
+    return SDHI_OK;
 }
 
 void SDCard_ioctl(uint8_t cmd, void *buff)
 {
     switch (cmd)
     {
-        case 0:     /* GET_SECTOR_SIZE */
-            *(uint16_t *)buff = (uint16_t)my_sdmmc_device.sector_size_bytes;
-            break;
-        case 1:     /* GET_BLOCK_SIZE */
-            *(uint32_t *)buff = my_sdmmc_device.erase_sector_count;
-            break;
-        case 2:     /* GET_SECTOR_COUNT */
+        case 1:     /* GET_SECTOR_COUNT */
             *(uint32_t *)buff = my_sdmmc_device.sector_count;
             break;
+        case 2:     /* GET_SECTOR_SIZE */
+            *(uint16_t *)buff = (uint16_t)my_sdmmc_device.sector_size_bytes;
+            break;
+        case 3:     /* GET_BLOCK_SIZE */
+            *(uint32_t *)buff = my_sdmmc_device.erase_sector_count;
+            break;
     }
 }
 
-void SDCard_Operation(void)
-{
-    fsp_err_t err;
-    sdmmc_status_t status;
-    uint32_t i;
-
-    /* 初始化要传输到SD卡内的源数组 */
-    for (i = 0; i < SDHI_MAX_BLOCK_SIZE; i++)
-    {
-        g_src[i] = (uint8_t)('A' + (uint8_t)(i % 26));
-    }
-
-    /* 写入数据 */
-    err = R_SDHI_Write(&g_sdmmc0_ctrl, g_src, 1, 1);
-    assert(FSP_SUCCESS == err);
-    while (g_transfer_complete == 0);
-    g_transfer_complete = 0;
-
-    /* 读出数据 */
-    err = R_SDHI_Read(&g_sdmmc0_ctrl, g_dest, 1, 1);
-    assert(FSP_SUCCESS == err);
-    while (g_transfer_complete == 0);
-    g_transfer_complete = 0;
-
-    /* 打印数据 */
-    for (i = 0; i < SDHI_MAX_BLOCK_SIZE; i++)
-    {
-        if (i % 26 == 0)
-            printf(" ");
-        printf("%c", g_dest[i]);
-    }
-
-    /* 对比数据 */
-    if (strncmp((char*)&g_dest[0], (char*)&g_src[0], SDHI_MAX_BLOCK_SIZE) == 0)
-    {
-        printf("\r\nSD卡读写数据成功!\r\n");
-    }
-    else
-    {
-        printf("\r\nSD卡读写数据错误!\r\n");
-    }
-}
-
-/* SD卡读取速度测量函数 - 使用系统时钟计算时间 */
+/* SD卡读取速度测量函数 */
 uint32_t SDCard_MeasureReadSpeed(void)
 {
-    fsp_err_t err;
-    uint32_t start_time, end_time;
-    uint32_t elapsed_cycles;
-    uint32_t elapsed_us;
-    float elapsed_sec;
-    uint32_t speed_kbps;
-    uint32_t total_bytes;
-    uint32_t num_blocks;
-    uint32_t start_block;
+    uint32_t start_time = SysTime_Get_us();
 
-    /* 测试配置：读取256个块，每个512字节，共128KB */
-    num_blocks = 256;
-    start_block = 2;  // 从第2个扇区开始（避开可能的FAT表）
-    total_bytes = num_blocks * SDHI_MAX_BLOCK_SIZE;  // 512 * 256 = 131072 字节 = 128 KB
-
-    printf("\r\n正在测量SD卡读取速度...\r\n");
-    printf("读取数据量: %d KB\r\n", total_bytes / 1024);
-    printf("系统时钟: %d Hz\r\n", SysTime_GetClockHz());
-
-    /* 开始计时 */
-    start_time = SysTime_Get();
-
-    /* 连续读取多个数据块 */
-    for (uint32_t i = 0; i < num_blocks; i++)
+    /* 读取256块 (128KB) */
+    for (uint32_t i = 0; i < 256; i++)
     {
-        g_transfer_complete = 0;
-        err = R_SDHI_Read(&g_sdmmc0_ctrl, g_dest, start_block + i, 1);
-        if (err != FSP_SUCCESS)
+        if (SDCard_Read(g_dest, 2 + i, 1, 1000000) != SDHI_OK)
         {
-            printf("读取错误! 块号: %d, 错误码: %d\r\n", start_block + i, err);
-            return 0;
-        }
-
-        /* 等待读取完成 */
-        while (g_transfer_complete == 0)
-        {
-            /* 等待传输完成 */
-        }
-
-        if (g_transfer_complete == 2)
-        {
-            printf("传输错误! 块号: %d\r\n", start_block + i);
             return 0;
         }
     }
 
-    /* 结束计时 */
-    end_time = SysTime_Get();
-    elapsed_cycles = SysTime_Elapsed(start_time, end_time);
-    elapsed_us = SysTime_CyclesToUs(elapsed_cycles);
+    uint32_t elapsed_us = SysTime_Elapsed_us(start_time, SysTime_Get_us());
+    uint32_t speed_kbps = (128 * 1000000) / elapsed_us;
 
-    /* 计算耗时（秒） */
-    elapsed_sec = (float)elapsed_cycles / SysTime_GetClockHz();
-
-    /* 计算速度 (KB/s) */
-    speed_kbps = (uint32_t)(total_bytes / elapsed_sec / 1024);
-
-    printf("读取完成! 耗时: %d us\r\n", elapsed_us);
-    printf("读取速度: %d KB/s\r\n", speed_kbps);
-    printf("读取速度: %d.%02d MB/s\r\n", speed_kbps / 1024, (speed_kbps % 1024) * 100 / 1024);
-
+    // printf("耗时: %lu us, 速度: %lu KB/s\r\n", elapsed_us, speed_kbps);
     return speed_kbps;
 }
 

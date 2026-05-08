@@ -4,15 +4,19 @@
 #include <stdint.h>
 
 typedef struct {
-    float angle;        // 卡尔曼滤波后的角度
-    float bias;         // 陀螺仪零偏估计
-    float P[2][2];      // 误差协方差矩阵
-    float Q_angle;      // 角度过程噪声协方差
-    float Q_bias;       // 零偏过程噪声协方差
-    float R_measure;    // 测量噪声协方差
-} kalman_t;
+    float angle;
+    float bias;
+    float P[2][2];
+    float Q_angle;
+    float Q_bias;
+    float R_measure;
+} kalman_filter_t;
 
-void kalman_init(kalman_t *kf);
-float kalman_update(kalman_t *kf, float new_angle, float new_gyro, float dt);
+void kalman_filter_init(kalman_filter_t *kf);
+float kalman_filter_update(kalman_filter_t *kf, float new_angle, float new_gyro, float dt);
+
+uint8_t Attitude_Init(void);
+void Attitude_Update(float dt);
+void Attitude_Get(float *roll, float *pitch);
 
 #endif /* KALMAN_H */

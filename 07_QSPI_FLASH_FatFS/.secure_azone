@@ -9,12 +9,19 @@
             <slot name="P300.CM33" secure="true"/>
             <slot name="P301.CM33" secure="true"/>
             <slot name="P302.CM33" secure="true"/>
+            <slot name="P305.CM33" secure="true"/>
+            <slot name="P306.CM33" secure="true"/>
+            <slot name="P307.CM33" secure="true"/>
+            <slot name="P308.CM33" secure="true"/>
+            <slot name="P309.CM33" secure="true"/>
+            <slot name="P310.CM33" secure="true"/>
         </peripheral>
         <peripheral name="PORT4.CM33" group="PORT">
             <slot name="P408.CM33" secure="true"/>
             <slot name="P409.CM33" secure="true"/>
         </peripheral>
         <peripheral name="SCI2.CM33" group="SCI" security="s"/>
+        <peripheral name="QSPI.CM33" security="s"/>
         <peripheral name="ICU.CM33">
             <slot name="IRQ0.CM33" secure="true"/>
             <slot name="IRQ1.CM33" secure="true"/>

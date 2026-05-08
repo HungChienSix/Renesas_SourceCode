@@ -12,7 +12,7 @@
 #include <errno.h>
 
 /* 串口初始化 */
-void UART_debug_Init(void);
+fsp_err_t UART_debug_Init();
 
 /* 函数声明 防止编译器警告 */
 int _isatty(int fd);

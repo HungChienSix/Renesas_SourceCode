@@ -1,4 +1,9 @@
 #include "hal_data.h"
+#include <string.h>
+#include "FatFS/ff.h"
+#include "FatFS/diskio.h"
+#include "QSPI_Flash/qspi_flash.h"
+#include "UART_debug/uart_debug.h"
 
 #if (1 == BSP_MULTICORE_PROJECT) && BSP_TZ_SECURE_BUILD
 bsp_ipc_semaphore_handle_t g_core_start_semaphore =
@@ -13,7 +18,77 @@ bsp_ipc_semaphore_handle_t g_core_start_semaphore =
  **********************************************************************************************************************/
 void hal_entry(void)
 {
-    /* TODO: add your own code here */
+    UART_debug_Init();
+    UART_debug_ClearCmdBuffer();
+
+    SysTime_Init();
+
+    /* FatFS 测试 */
+    FATFS fs;
+    FIL fil;
+    UINT bw, br;
+    FRESULT fr;
+    char test_str[] = "Hello SD Card!\r\n";
+    char read_buf[64] = {0};
+
+    printf("Mount FLASH...\r\n");
+
+    /* Initialize FLASH drive */
+    if (disk_initialize(0) != RES_OK) {
+        printf("disk_init error\r\n");
+        while(1) {}
+    }
+
+    /* Try to mount first */
+    FRESULT res = f_mount(&fs, "0:", 1);
+    if (res != FR_OK) {
+        printf("f_mount error: %d, try mkfs...\r\n", res);
+
+        /* Try to create filesystem */
+        uint8_t work[4096];
+        const MKFS_PARM mkfs_parm = {FM_SFD | FM_FAT, 0, 0};
+        res = f_mkfs("0:", &mkfs_parm, work, sizeof(work));
+        if (res != FR_OK) {
+            printf("f_mkfs error: %d\r\n", res);
+            while(1) {}
+        }
+
+        /* Mount after mkfs */
+        res = f_mount(&fs, "0:", 1);
+        if (res != FR_OK) {
+            printf("f_mount error: %d\r\n", res);
+            while(1) {}
+        }
+    }
+
+    printf("Open test.txt...\r\n");
+    fr = f_open(&fil, "0:test.txt", FA_CREATE_ALWAYS | FA_WRITE | FA_READ);
+    if (fr != FR_OK) {
+        printf("f_open error: %d\r\n", fr);
+        while(1) {}
+    }
+
+    printf("Write...\r\n");
+    fr = f_write(&fil, test_str, strlen(test_str), &bw);
+    if (fr != FR_OK) {
+        printf("f_write error: %d\r\n", fr);
+        while(1) {}
+    }
+
+    f_lseek(&fil, 0);
+    printf("Read...\r\n");
+    fr = f_read(&fil, read_buf, sizeof(read_buf), &br);
+    if (fr != FR_OK) {
+        printf("f_read error: %d\r\n", fr);
+        while(1) {}
+    }
+    f_close(&fil);
+
+    printf("Write: %s", test_str);
+    printf("Read:  %s", read_buf);
+    printf("Test: %s\r\n", (strcmp(test_str, read_buf) == 0) ? "PASS" : "FAIL");
+
+    while(1) {}
 
     /* Wake up 2nd core if this is first core and we are inside a multicore project. */
 #if (0 == _RA_CORE) && (1 == BSP_MULTICORE_PROJECT) && !BSP_TZ_NONSECURE_BUILD

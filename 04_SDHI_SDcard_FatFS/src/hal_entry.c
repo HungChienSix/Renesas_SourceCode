@@ -1,11 +1,12 @@
 #include "hal_data.h"
+#include <stdio.h>
+#include <string.h>
 #include "UART_debug/uart_debug.h"
-#include "FatFS/ff.h"
 #include "sys_time/sys_time.h"
+#include "FatFS/ff.h"
+#include "SDHI_SDcard/sdhi_sdcard.h"
 
-/* SD卡事先格式化为 Fat32 512字节 ，具体配置如有更改请参考ffconf.h文件 ,文件里面部分配置已经做出更改 */
-/* FatFS的官方网址是 https://elm-chan.org/fsw/ff/ */
-/* 本代码采用的FatFS源码版本是最新(?)的 R0.16 */
+/* FatFS R0.16 | SD卡需预格式化为 FAT32 | 配置见 ffconf.h */
 
 #if (1 == BSP_MULTICORE_PROJECT) && BSP_TZ_SECURE_BUILD
 bsp_ipc_semaphore_handle_t g_core_start_semaphore =
@@ -20,29 +21,54 @@ bsp_ipc_semaphore_handle_t g_core_start_semaphore =
  **********************************************************************************************************************/
 void hal_entry(void)
 {
-    /* TODO: add your own code here */
-    SysTime_Init();
     UART_debug_Init();
+    UART_debug_ClearCmdBuffer();
 
-    printf("Hello World!\r\n");
+    SysTime_Init();
 
-    /* FatFS mount test */
-    FATFS FatFS;
-    FRESULT result;
+    /* FatFS 测试 */
+    FATFS fs;
+    FIL fil;
+    UINT bw, br;
+    FRESULT fr;
+    char test_str[] = "Hello SD Card!\r\n";
+    char read_buf[64] = {0};
 
-    printf("\r\n=== FatFS Mount Test ===\r\n");
-    printf("Initializing SD card hardware...\r\n");
-
-    result = f_mount(&FatFS, "1:", 1);
-    if (result == FR_OK) {
-        printf("[OK] FatFS mount successful!\r\n");
-    } else {
-        printf("[ERR] FatFS mount failed: %d\r\n", result);
+    printf("Mount SD card...\r\n");
+    fr = f_mount(&fs, "1:", 1);
+    if (fr != FR_OK) {
+        printf("f_mount error: %d\r\n", fr);
+        while(1) {}
     }
 
-    while(1){
-
+    printf("Open test.txt...\r\n");
+    fr = f_open(&fil, "1:test.txt", FA_CREATE_ALWAYS | FA_WRITE | FA_READ);
+    if (fr != FR_OK) {
+        printf("f_open error: %d\r\n", fr);
+        while(1) {}
     }
+
+    printf("Write...\r\n");
+    fr = f_write(&fil, test_str, strlen(test_str), &bw);
+    if (fr != FR_OK) {
+        printf("f_write error: %d\r\n", fr);
+        while(1) {}
+    }
+
+    f_lseek(&fil, 0);
+    printf("Read...\r\n");
+    fr = f_read(&fil, read_buf, sizeof(read_buf), &br);
+    if (fr != FR_OK) {
+        printf("f_read error: %d\r\n", fr);
+        while(1) {}
+    }
+    f_close(&fil);
+
+    printf("Write: %s", test_str);
+    printf("Read:  %s", read_buf);
+    printf("Test: %s\r\n", (strcmp(test_str, read_buf) == 0) ? "PASS" : "FAIL");
+
+    while(1) {}
 
     /* Wake up 2nd core if this is first core and we are inside a multicore project. */
 #if (0 == _RA_CORE) && (1 == BSP_MULTICORE_PROJECT) && !BSP_TZ_NONSECURE_BUILD

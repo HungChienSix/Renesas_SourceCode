@@ -1,7 +1,12 @@
 #include "hal_data.h"
+#include <stdio.h>
+#include <string.h>
 #include "UART_debug/uart_debug.h"
+#include "Sys_time/sys_time.h"
 #include "Screen/screen_ui.h"
-#include "sys_time/sys_time.h"
+
+bool printf_screen = false;
+uint8_t screen_ui_test_index = 0;
 
 /* 本工程使用的是 ST7735 128*128 1.44寸 的屏幕，由于不带字库显示中文略显复杂 */
 /* 里面驱动代码为原创 */
@@ -28,22 +33,61 @@ bsp_ipc_semaphore_handle_t g_core_start_semaphore =
 void hal_entry(void)
 {
     /* TODO: add your own code here */
+    UART_debug_ClearCmdBuffer();
     UART_debug_Init();
-    SysTime_Init();      // 初始化系统时间计数器
-    SCREEN_Init();
+
+    SysTime_Init();
+
+    ST7735_Hardware_Init();
+    ST7735_Init();
+
+    uint32_t time = 0;
 
     while(1){
-        SCREEN_FillScreen(SCREEN_BLACK);
-        SCREEN_DrawString(1,  0, "QWERTYUIOPASDFGHJKL", &Font_8x16_consola, SCREEN_WHITE, SCREEN_Nor);
-        SCREEN_DrawString(1, 18, "QWERTYUIOPASDFGHJKL", &Font_8x12_consola, SCREEN_WHITE, SCREEN_Nor);
-        SCREEN_DrawString(1, 36, "QWERTYUIOPASDFGHJKL", &Font_8x16_times, SCREEN_WHITE, SCREEN_Nor);
-        SCREEN_DrawString(1, 54, "QWERTYUIOPASDFGHJKL", &Font_8x12_times, SCREEN_WHITE, SCREEN_Nor);
+        SCREEN_FillScreen(SCREEN_WHITE);
+        SCREEN_DrawUITest(screen_ui_test_index);
+        time = SCREEN_RefreshScreen();
 
-        SCREEN_DrawUTFString(0, 72, "你好世界", &Font_8x16_consola, &Font_UTF_16x16_YuMincho, SCREEN_GREEN, SCREEN_Nor);
-        SCREEN_DrawUTFString(0, 90, "你好世界", &Font_8x12_consola, &Font_UTF_16x12_YuMincho, SCREEN_GREEN, SCREEN_Nor);
+        if(printf_screen == true){
+            printf("time = %d ms\r\n",time);
+        }
 
-        SCREEN_RefreshScreen();
-        R_BSP_SoftwareDelay(1000U, BSP_DELAY_UNITS_MILLISECONDS);
+        if (UART_debug_HasCommand())
+        {
+            UART_CmdInfo_t cmd;
+            UART_debug_ParseCommand(UART_debug_GetCmdBuffer(), &cmd);
+            if (cmd.valid) {
+                printf("CMD: %s, ARG: %s\r\n", cmd.cmd, cmd.arg);
+
+                if (strcmp(cmd.cmd, "printf_screen") == 0) {
+                    if(strcmp(cmd.arg, "0") == 0){
+                        printf_screen = false;
+                    } else if(strcmp(cmd.arg, "1") == 0){
+                        printf_screen = true;
+                    } else {
+                        printf("Invalid argument for printf_screen. Use 0 or 1.\r\n");
+                    }
+                }
+                else if (strcmp(cmd.cmd, "screen_test") == 0) {
+                    if(strcmp(cmd.arg, "0") == 0){
+                        screen_ui_test_index = 0;
+                    } else if(strcmp(cmd.arg, "1") == 0){
+                        screen_ui_test_index = 1;
+                    } else if(strcmp(cmd.arg, "2") == 0){
+                        screen_ui_test_index = 2;
+                    } else if(strcmp(cmd.arg, "3") == 0){
+                        screen_ui_test_index = 3;
+                    } else if(strcmp(cmd.arg, "4") == 0){
+                        screen_ui_test_index = 4;
+                    } else if(strcmp(cmd.arg, "5") == 0){
+                        screen_ui_test_index = 5;
+                    } else {
+                        printf("Invalid argument for printf_screen. \r\n");
+                    }
+                }
+            }
+            UART_debug_ClearCmdBuffer();
+        }
     }
 
     /* Wake up 2nd core if this is first core and we are inside a multicore project. */

@@ -3,24 +3,19 @@
 #ifndef SYS_TIME_H
 #define SYS_TIME_H
 
-#include "stdint.h"
+#include <stdint.h>
 
 /* 初始化系统时间计数器（DWT周期计数器） */
 void            SysTime_Init(void);
 
-/* 获取当前时间戳（CPU周期数） */
-uint32_t        SysTime_Get(void);
+/* 获取当前时间戳 */
+uint32_t        SysTime_Get_tick(void);
 
-/* 计算时间差（CPU周期数） */
-uint32_t        SysTime_Elapsed(uint32_t start, uint32_t end);
+uint32_t        SysTime_Get_ms(void);
 
-/* CPU周期数转微秒 */
-uint32_t        SysTime_CyclesToUs(uint32_t cycles);
+uint32_t        SysTime_Get_us(void);
 
-/* CPU周期数转毫秒 */
-uint32_t        SysTime_CyclesToMs(uint32_t cycles);
-
-/* 获取系统时钟频率(Hz) */
-uint32_t        SysTime_GetClockHz(void);
+/* 计算时间差 */
+uint32_t        SysTime_Elapsed_us(uint32_t start, uint32_t end);
 
 #endif /* SYS_TIME_H */

@@ -2,38 +2,51 @@
 #include <string.h>
 
 /* I2C传输完成标志 */
-static volatile bool g_i2c_completed = false;
-static volatile i2c_master_event_t g_i2c_event;
+volatile bool i2c_receive_complete_flag = false;
+volatile bool i2c_send_complete_flag = false;
 
 /* I2C主模式回调函数 */
 void sci_i2c_master_callback(i2c_master_callback_args_t *p_args)
 {
-    g_i2c_event = p_args->event;
-    g_i2c_completed = true;
+    switch (p_args->event)
+    {
+        case I2C_MASTER_EVENT_RX_COMPLETE:
+        {
+            i2c_receive_complete_flag  = true;
+            break;
+        }
+        case I2C_MASTER_EVENT_TX_COMPLETE:
+        {
+            i2c_send_complete_flag  = true;
+            break;
+        }
+        default:
+            break;
+    }
 }
 
 /* 阻塞式I2C写 */
 static uint8_t mpu_i2c_write(uint8_t *buf, uint8_t len, bool restart)
 {
-    g_i2c_completed = false;
+    i2c_send_complete_flag = false;
     fsp_err_t err = R_SCI_I2C_Write(&g_i2c0_ctrl, buf, len, restart);
     if (err != FSP_SUCCESS)
-        return 1;
-    while (!g_i2c_completed)
+        return err;
+    while (!i2c_send_complete_flag)
         ;
-    return (g_i2c_event == I2C_MASTER_EVENT_TX_COMPLETE) ? 0 : 1;
+    return err;
 }
 
 /* 阻塞式I2C读 */
 static uint8_t mpu_i2c_read(uint8_t *buf, uint8_t len, bool restart)
 {
-    g_i2c_completed = false;
+    i2c_receive_complete_flag = false;
     fsp_err_t err = R_SCI_I2C_Read(&g_i2c0_ctrl, buf, len, restart);
     if (err != FSP_SUCCESS)
-        return 1;
-    while (!g_i2c_completed)
+        return err;
+    while (!i2c_receive_complete_flag)
         ;
-    return (g_i2c_event == I2C_MASTER_EVENT_RX_COMPLETE) ? 0 : 1;
+    return err;
 }
 
 /**********************************************

@@ -11,17 +11,17 @@
  * @param type: 绘制模式,SCREEN_Xor 异或模式,SCREEN_Nor 普通模式
  */
 SCREEN_Event_t SCREEN_DrawPixel(int16_t x0, int16_t y0,
-								SCREEN_Pixel_t Pixel_Set, SCREEN_Mode_t type)
+								ST7735_Pixel_t Pixel_Set, SCREEN_Mode_t type)
 {
 	/* 参数检查：坐标边界验证 */
 	if (x0 < 0 || x0 >= ST7735_WIDTH || y0 < 0 || y0 >= ST7735_HEIGHT) {
 		return SCREEN_OUT;  /* 坐标超出屏幕范围 */
 	}
 
-	if((type == SCREEN_Xor)&&(ReadPixel(x0,y0) == Pixel_Set))
-		DrawPixel(x0, y0, ~Pixel_Set);
+	if((type == SCREEN_Xor)&&(ST7735_ReadPixel(x0,y0) == Pixel_Set))
+		ST7735_DrawPixel(x0, y0, ~Pixel_Set);
 	else
-		DrawPixel(x0, y0, Pixel_Set);
+		ST7735_DrawPixel(x0, y0, Pixel_Set);
 
 	return SCREEN_OK;
 }
@@ -34,7 +34,7 @@ SCREEN_Event_t SCREEN_DrawPixel(int16_t x0, int16_t y0,
  * @param type: 绘制模式,SCREEN_Xor 异或模式,SCREEN_Nor 普通模式
  */
 SCREEN_Event_t SCREEN_DrawLine(int16_t x0, int16_t x1, int16_t y0, int16_t y1,
-								SCREEN_Pixel_t Pixel_Set, SCREEN_Mode_t type)
+								ST7735_Pixel_t Pixel_Set, SCREEN_Mode_t type)
 {
 	int16_t dx = (x1 > x0) ? (x1 - x0) : (x0 - x1);
 	int16_t dy = (y1 > y0) ? (y1 - y0) : (y0 - y1);
@@ -70,7 +70,7 @@ SCREEN_Event_t SCREEN_DrawLine(int16_t x0, int16_t x1, int16_t y0, int16_t y1,
  * @param type: 绘制模式,SCREEN_Xor 异或模式,SCREEN_Nor 普通模式
  */
 SCREEN_Event_t SCREEN_DrawRectSolid(int16_t x0, int16_t x1, int16_t y0, int16_t y1,
-								SCREEN_Pixel_t Pixel_Set, SCREEN_Mode_t type)
+								ST7735_Pixel_t Pixel_Set, SCREEN_Mode_t type)
 {
     int16_t x_start = (x0 < x1)? x0 : x1;
     int16_t x_end   = (x0 < x1)? x1 : x0;
@@ -79,7 +79,7 @@ SCREEN_Event_t SCREEN_DrawRectSolid(int16_t x0, int16_t x1, int16_t y0, int16_t 
     int16_t y_end   = (y0 < y1)? y1 : y0;
     
 	for(int16_t y = y_start; y <= y_end; y++) {
-		DrawHorLine(x_start, x_end, y, Pixel_Set, type);
+		ST7735_DrawHorLine(x_start, x_end, y, Pixel_Set, type);
 	}
 
 	return SCREEN_OK;
@@ -93,13 +93,13 @@ SCREEN_Event_t SCREEN_DrawRectSolid(int16_t x0, int16_t x1, int16_t y0, int16_t 
  * @param type: 绘制模式,SCREEN_Xor 异或模式,SCREEN_Nor 普通模式
  */
 SCREEN_Event_t SCREEN_DrawRectHollow(int16_t x0, int16_t x1, int16_t y0, int16_t y1,
-								SCREEN_Pixel_t Pixel_Set, SCREEN_Mode_t type)
+								ST7735_Pixel_t Pixel_Set, SCREEN_Mode_t type)
 {
 	/* 使用直线函数绘制四条边 */ 
-	DrawHorLine(x0, x1, y0, Pixel_Set, type); /* 上边 */
-	DrawHorLine(x0, x1, y1, Pixel_Set, type); /* 下边 */
-	DrawVerLine(x0, y0+1, y1-1, Pixel_Set, type); /* 左边 */
-	DrawVerLine(x1, y0+1, y1-1, Pixel_Set, type); /* 右边 */
+	ST7735_DrawHorLine(x0, x1, y0, Pixel_Set, type); /* 上边 */
+	ST7735_DrawHorLine(x0, x1, y1, Pixel_Set, type); /* 下边 */
+	ST7735_DrawVerLine(x0, y0+1, y1-1, Pixel_Set, type); /* 左边 */
+	ST7735_DrawVerLine(x1, y0+1, y1-1, Pixel_Set, type); /* 右边 */
 
 	return SCREEN_OK;
 }
@@ -113,7 +113,7 @@ SCREEN_Event_t SCREEN_DrawRectHollow(int16_t x0, int16_t x1, int16_t y0, int16_t
  * @param type: 绘制模式
  */
 SCREEN_Event_t SCREEN_DrawRoundRectSolid(int16_t x0, int16_t x1, int16_t y0, int16_t y1,
-									uint8_t radius, SCREEN_Pixel_t Pixel_Set, SCREEN_Mode_t type)
+									uint8_t radius, ST7735_Pixel_t Pixel_Set, SCREEN_Mode_t type)
 {
 	int16_t x_start = (x0 > x1) ? x1 : x0;
 	int16_t x_end   = (x0 > x1) ? x0 : x1;
@@ -186,7 +186,7 @@ SCREEN_Event_t SCREEN_DrawRoundRectSolid(int16_t x0, int16_t x1, int16_t y0, int
 
 		/* 绘制当前行 */ 
 		if (line_start <= line_end) {
-			DrawHorLine(line_start, line_end, row, Pixel_Set, type);
+			ST7735_DrawHorLine(line_start, line_end, row, Pixel_Set, type);
 		}
 	}
 
@@ -202,7 +202,7 @@ SCREEN_Event_t SCREEN_DrawRoundRectSolid(int16_t x0, int16_t x1, int16_t y0, int
  * @param type: 绘制模式
  */
 SCREEN_Event_t SCREEN_DrawRoundRectHollow(int16_t x0, int16_t x1, int16_t y0, int16_t y1,
-									uint8_t radius, SCREEN_Pixel_t Pixel_Set, SCREEN_Mode_t type)
+									uint8_t radius, ST7735_Pixel_t Pixel_Set, SCREEN_Mode_t type)
 {
 	int16_t x_start = (x0 > x1) ? x1 : x0;
 	int16_t x_end   = (x0 > x1) ? x0 : x1;
@@ -234,22 +234,22 @@ SCREEN_Event_t SCREEN_DrawRoundRectHollow(int16_t x0, int16_t x1, int16_t y0, in
 	/* 绘制四条直线边（精确控制端点，避免与圆角重叠） */ 
 	/* 上边（左右圆角之间，不包含圆角部分） */ 
 	if (rect_width > 2 * radius) {
-		DrawHorLine(x_start + radius + 1, x_end - radius - 1, y_start, Pixel_Set, type);
+		ST7735_DrawHorLine(x_start + radius + 1, x_end - radius - 1, y_start, Pixel_Set, type);
 	}
 
 	/* 下边（左右圆角之间，不包含圆角部分） */ 
 	if (rect_width > 2 * radius) {
-		DrawHorLine(x_start + radius + 1, x_end - radius - 1, y_end, Pixel_Set, type);
+		ST7735_DrawHorLine(x_start + radius + 1, x_end - radius - 1, y_end, Pixel_Set, type);
 	}
 
 	/* 左边（上下圆角之间，不包含圆角部分） */ 
 	if (rect_height > 2 * radius) {
-		DrawVerLine(x_start, y_start + radius + 1, y_end - radius - 1, Pixel_Set, type);
+		ST7735_DrawVerLine(x_start, y_start + radius + 1, y_end - radius - 1, Pixel_Set, type);
 	}
 
 	/* 右边（上下圆角之间，不包含圆角部分） */ 
 	if (rect_height > 2 * radius) {
-		DrawVerLine(x_end, y_start + radius + 1, y_end - radius - 1, Pixel_Set, type);
+		ST7735_DrawVerLine(x_end, y_start + radius + 1, y_end - radius - 1, Pixel_Set, type);
 	}
 
 	/* 绘制四个圆角（完整的90度圆弧） */ 
@@ -274,7 +274,7 @@ SCREEN_Event_t SCREEN_DrawRoundRectHollow(int16_t x0, int16_t x1, int16_t y0, in
  * @param type: 绘制模式,SCREEN_Xor 异或模式,SCREEN_Nor 普通模式
  */
 SCREEN_Event_t SCREEN_DrawQuarArc(int16_t x0, int16_t y0, uint16_t r, uint8_t quadrant_mask,
-								SCREEN_Pixel_t Pixel_Set, SCREEN_Mode_t type)
+								ST7735_Pixel_t Pixel_Set, SCREEN_Mode_t type)
 {
 	/* 参数验证：限制最大半径 */ 
 	if (r == 0) {
@@ -380,7 +380,7 @@ static void updateBounds(int16_t x, int16_t y, int16_t *min_x, int16_t *max_x)
  * @param type: 绘制模式,SCREEN_Xor 异或模式,SCREEN_Nor 普通模式
  */
 SCREEN_Event_t SCREEN_DrawQuarSector(int16_t x0, int16_t y0, uint16_t r, uint8_t quadrant_mask,
-								SCREEN_Pixel_t Pixel_Set, SCREEN_Mode_t type)
+								ST7735_Pixel_t Pixel_Set, SCREEN_Mode_t type)
 {
     /* 限制半径在安全范围内，防止数组越界和性能问题 */ 
     if (r > SCREEN_MAX_ROUND_RADIUS) {
@@ -440,7 +440,7 @@ SCREEN_Event_t SCREEN_DrawQuarSector(int16_t x0, int16_t y0, uint16_t r, uint8_t
     /* 填充扇形区域 */
     for(int16_t row = row_lo; row <= row_hi; row++) {
         if(min_x[row] <= max_x[row]) {
-            DrawHorLine(min_x[row], max_x[row], row, Pixel_Set, type);
+            ST7735_DrawHorLine(min_x[row], max_x[row], row, Pixel_Set, type);
         }
     }
 
@@ -457,7 +457,7 @@ SCREEN_Event_t SCREEN_DrawQuarSector(int16_t x0, int16_t y0, uint16_t r, uint8_t
  * @param type: 绘制模式,SCREEN_Xor 异或模式,SCREEN_Nor 普通模式
  */
 SCREEN_Event_t SCREEN_DrawChar(int16_t x0, int16_t y0, char ch, const struFont_t *font,
-									SCREEN_Pixel_t Pixel_Set, SCREEN_Mode_t type)
+									ST7735_Pixel_t Pixel_Set, SCREEN_Mode_t type)
 {	
     /* 参数检查 */
     if (font == NULL || ch < ' ' || ch > '~') {
@@ -497,7 +497,7 @@ SCREEN_Event_t SCREEN_DrawChar(int16_t x0, int16_t y0, char ch, const struFont_t
  * @note  str: 绘制的字符串
  */
 SCREEN_Event_t SCREEN_DrawString(int16_t x0, int16_t y0, const char *str, const struFont_t *font,
-									SCREEN_Pixel_t Pixel_Set, SCREEN_Mode_t type)
+									ST7735_Pixel_t Pixel_Set, SCREEN_Mode_t type)
 {
     /* 修正坐标系 */
 	int16_t current_x = x0;
@@ -531,7 +531,7 @@ SCREEN_Event_t SCREEN_DrawString(int16_t x0, int16_t y0, const char *str, const 
  * @note 字模格式：低位在前，逐行，阴码
  */
 SCREEN_Event_t SCREEN_DrawUTFChar(int16_t x0, int16_t y0, const char *utf8_char, const struFont_UTF_t *hz_font,
-									SCREEN_Pixel_t Pixel_Set, SCREEN_Mode_t type)
+									ST7735_Pixel_t Pixel_Set, SCREEN_Mode_t type)
 {
 	if (utf8_char == NULL || hz_font == NULL) {
 		return SCREEN_PARAM_ERROR;
@@ -625,7 +625,7 @@ static uint8_t UTF8_GetCharLen(uint8_t c)
  */
 SCREEN_Event_t SCREEN_DrawUTFString(int16_t x0, int16_t y0, const char *utf8_str,
 									const struFont_t *ascii_font, const struFont_UTF_t *hz_font,
-									SCREEN_Pixel_t Pixel_Set, SCREEN_Mode_t type)
+									ST7735_Pixel_t Pixel_Set, SCREEN_Mode_t type)
 {
 	if (utf8_str == NULL || ascii_font == NULL || hz_font == NULL) {
 		return SCREEN_PARAM_ERROR;
@@ -680,7 +680,7 @@ SCREEN_Event_t SCREEN_DrawUTFString(int16_t x0, int16_t y0, const char *utf8_str
  * @param type: 绘制模式
  */
 SCREEN_Event_t SCREEN_DrawImage(int16_t x0, int16_t y0, uint16_t width, uint16_t height,
-								const uint8_t *image, SCREEN_Pixel_t Pixel_Set, SCREEN_Mode_t type)
+								const uint8_t *image, ST7735_Pixel_t Pixel_Set, SCREEN_Mode_t type)
 {
 	/* 参数检查 */
 	if (image == NULL) {
@@ -740,7 +740,7 @@ SCREEN_Event_t SCREEN_DrawRGBImage(int16_t x0, int16_t y0, uint16_t width, uint1
 		for (uint16_t x = 0; x < width; x++) {
 			/* 获取 RGB565 颜色值（每个像素 2 字节） */ 
 				uint16_t idx = (y * width + x) * 2;
-				SCREEN_Pixel_t pixel = (SCREEN_Pixel_t)(image[idx + 1] << 8 | image[idx]);
+				ST7735_Pixel_t pixel = (ST7735_Pixel_t)(image[idx + 1] << 8 | image[idx]);
 			SCREEN_DrawPixel(x0 + x, y0 + y, pixel, SCREEN_Nor);
 		}
 	}

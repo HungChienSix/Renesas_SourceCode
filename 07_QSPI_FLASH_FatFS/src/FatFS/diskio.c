@@ -10,8 +10,12 @@
 #include "ff.h"			/* Basic definitions of FatFs */
 #include "diskio.h"		/* Declarations FatFs MAI */
 
-#define DEV_FLASH       0
-#define DEV_SDCARD      1
+
+#include "QSPI_Flash/qspi_flash.h"
+// #include "SDHI_SDcard/sdhi_sdcard.h"
+
+#define DEV_FLASH        0
+#define DEV_SDCARD       1
 
 /*-----------------------------------------------------------------------*/
 /* Get Drive Status                                                      */
@@ -22,16 +26,18 @@ DSTATUS disk_status (
 )
 {
 	DSTATUS stat;
-
+    stat = RES_OK;
+    
 	switch (pdrv) {
 	case DEV_FLASH :
-	    stat = RES_OK;
-
+#ifdef FLASH_FatFS
+		if(FSP_SUCCESS != QSPI_Flash_WaitForWriteEnd()){ //等待Flash芯片内部操作完成
+		    stat = RES_ERROR;
+		}
+#endif
 		return stat;
 
 	case DEV_SDCARD :
-	    stat = RES_OK;
-
 		return stat;
 	}
 
@@ -49,17 +55,23 @@ DSTATUS disk_initialize (
 )
 {
 	DSTATUS stat;
-
+	stat = RES_OK;
+	
 	switch (pdrv) {
 	case DEV_FLASH :
-	    stat = RES_OK;
-
+#ifdef FLASH_FatFS
+		if(FSP_SUCCESS != QSPI_Flash_Init()){
+		    stat = STA_NOINIT;
+		}
+#endif
 		return stat;
 
 	case DEV_SDCARD :
-        SDCard_Init();
-
-        stat = RES_OK;
+#if SD_CARD_ENABLE
+        if(FSP_SUCCESS != SDCard_Init()){
+            stat = STA_NOINIT;
+        }
+#endif
 		return stat;
 	}
 	return STA_NOINIT;
@@ -79,19 +91,23 @@ DRESULT disk_read (
 )
 {
 	DRESULT res;
-
+    res = RES_OK;
 
 	switch (pdrv) {
 	case DEV_FLASH :
-	    res = RES_OK;
-
+#ifdef FLASH_FatFS
+		if(FSP_SUCCESS != QSPI_Flash_BufferRead(buff, sector<<12, count<<12)){ //1 sector == 4096 bytes
+		    res = RES_ERROR;
+		}
+#endif
 		return res;
 
 	case DEV_SDCARD :
-	    if (SDCard_Read(buff, sector, count, 100000) != 0)
-	        return RES_ERROR;
-
-        res = RES_OK;
+#if SD_CARD_ENABLE
+        if(SDHI_OK != SDCard_Read(buff, sector, count, 100000)){
+            res = RES_ERROR;
+        }
+#endif
         return res;
 	}
 
@@ -114,18 +130,26 @@ DRESULT disk_write (
 )
 {
 	DRESULT res;
+    res = RES_OK;
 
 	switch (pdrv) {
 	case DEV_FLASH :
-
-		res = RES_OK;
+#ifdef FLASH_FatFS
+	    uint32_t write_addr = sector << 12;
+		QSPI_Flash_SectorErase(write_addr);
+		QSPI_Flash_BufferWrite(buff, write_addr, count<<12);
+#endif
 		return res;
 
 	case DEV_SDCARD :
-		if (SDCard_Write(buff, sector, count, 100000) != 0)
-		    return RES_ERROR;
-
-		res = RES_OK;
+#if SD_CARD_ENABLE
+        if(SDCard_Write(buff, sector, count, 100000) == 0){
+            res = RES_OK;
+        }
+        else{
+            res = RES_ERROR;
+        }
+#endif
 		return res;
 	}
 
@@ -146,9 +170,11 @@ DRESULT disk_ioctl (
 )
 {
 	DRESULT res;
+    res = RES_OK;
 
 	switch (pdrv) {
     case DEV_FLASH :
+#ifdef FLASH_FatFS
         switch (cmd) {
             case GET_SECTOR_COUNT:      /* 扇区数量：1024*4096/1024/1024 = 4(MB) */
                       *(DWORD *)buff = 1024;
@@ -160,14 +186,14 @@ DRESULT disk_ioctl (
                       *(DWORD *)buff = 1;
                       break;
         }
+#endif
 
-        res = RES_OK;
         return res;
 
     case DEV_SDCARD :
+#if SD_CARD_ENABLE
         SDCard_ioctl(cmd, buff);
-
-        res = RES_OK;
+#endif
         return res;
 	}
 

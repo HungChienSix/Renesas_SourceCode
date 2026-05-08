@@ -1,17 +1,16 @@
 /* V1.0 UART_Debug */
 
-#include <UART_Debug/uart_debug.h>
+#include "UART_Debug/uart_debug.h"
+#include <stdbool.h>
 
 /* 调试串口初始化函数 */
-void UART_debug_Init(void)
+fsp_err_t UART_debug_Init()
 {
-   fsp_err_t err = FSP_SUCCESS;
-
-   err = R_SCI_UART_Open (&g_uart0_ctrl, &g_uart0_cfg);
-   assert(FSP_SUCCESS == err);
+   fsp_err_t err = R_SCI_UART_Open (&g_uart0_ctrl, &g_uart0_cfg);
+   return err;
 }
 
-/* 发送完成标志 */
+/* 发送接收完成标志 */
 volatile bool uart_receive_complete_flag = false;
 volatile bool uart_send_complete_flag = false;
 
@@ -33,7 +32,7 @@ void UART_debug_callback (uart_callback_args_t * p_args)
         case UART_EVENT_RX_CHAR:
         {
             /* 回显 */
-            R_SCI_UART_Write(&g_uart0_ctrl, (uint8_t *)&(p_args->data), 1);
+//            R_SCI_UART_Write(&g_uart0_ctrl, (uint8_t *)&(p_args->data), 1);
             break;
         }
         default:
@@ -50,6 +49,7 @@ int _read(int fd, char *pBuffer, int size);
 int _write(int fd, char *pBuffer, int size)
 {
    (void) fd;
+
    R_SCI_UART_Write (&g_uart0_ctrl, (uint8_t*) pBuffer, (uint32_t) size);
    while (uart_send_complete_flag == false);
    uart_send_complete_flag = false;
