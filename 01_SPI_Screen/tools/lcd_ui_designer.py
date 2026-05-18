@@ -1,1317 +1,1050 @@
 #!/usr/bin/env python3
-"""ST7735 LCD UI Designer - 可视化拖拽设计128x128 LCD界面，导出C代码"""
+"""
+Screen UI Designer - 可视化界面设计工具
+用于 ST7735 128x128 LCD 的 UI 组件设计
+
+依赖: pip install Pillow
+用法: python lcd_ui_designer.py
+"""
 
 import tkinter as tk
-from tkinter import messagebox
-import math
+from tkinter import ttk, colorchooser, messagebox
+import json
 
-# ---------------------------------------------------------------------------
-# RGB565 颜色工具
-# ---------------------------------------------------------------------------
-NAMED_COLORS = {
-    "SCREEN_BLACK":   0x0000,
-    "SCREEN_RED":     0xF800,
-    "SCREEN_GREEN":   0x07E0,
-    "SCREEN_BLUE":    0x001F,
-    "SCREEN_YELLOW":  0xFFE0,
-    "SCREEN_MAGENTA": 0xF81F,
-    "SCREEN_CYAN":    0x07FF,
-    "SCREEN_WHITE":   0xFFFF,
+# =============================================================================
+# 组件类型定义
+# =============================================================================
+COMPONENT_TYPES = {
+    "Button": {
+        "struct": "struUI_Button_t",
+        "fields": ["location", "frame", "label", "ascii_font", "hz_font", "color", "state"],
+        "color_count": 3,
+    },
+    "Tooltip": {
+        "struct": "struUI_Tooltip_t",
+        "fields": ["location", "frame", "text", "ascii_font", "hz_font", "color"],
+        "color_count": 2,
+    },
+    "ProgressBar": {
+        "struct": "struUI_ProgressBar_t",
+        "fields": ["location", "frame", "color", "progress"],
+        "color_count": 2,
+    },
+    "Switch": {
+        "struct": "struUI_Switch_t",
+        "fields": ["location", "width", "height", "track_color", "thumb_color", "value"],
+        "color_count": 2,
+    },
+    "Slider": {
+        "struct": "struUI_Slider_t",
+        "fields": ["location", "width", "height", "track_color", "thumb_color", "progress_color", "min_value", "max_value", "current_value"],
+        "color_count": 3,
+    },
+    "ListItem": {
+        "struct": "struUI_ListItem_t",
+        "fields": ["location", "width", "height", "text", "font", "bg_color", "text_color", "border_color", "selected", "show_border"],
+        "color_count": 3,
+    },
 }
 
-SHADOW_RGB565 = 0x4208
+# 预定义颜色
+PRESET_COLORS = {
+    "BLACK": 0x0000,
+    "RED": 0xF800,
+    "GREEN": 0x07E0,
+    "BLUE": 0x001F,
+    "YELLOW": 0xFFE0,
+    "MAGENTA": 0xF81F,
+    "CYAN": 0x07FF,
+    "WHITE": 0xFFFF,
+    "GRAY": 0x6E6E,
+}
+
+SCREEN_W, SCREEN_H = 128, 128
+CANVAS_SCALE = 3  # 3px per LCD pixel
 
 
-def rgb565_to_hex(val):
-    r = ((val >> 11) & 0x1F) * 255 // 31
-    g = ((val >> 5) & 0x3F) * 255 // 63
-    b = (val & 0x1F) * 255 // 31
-    return f"#{r:02x}{g:02x}{b:02x}"
+# =============================================================================
+# 组件类
+# =============================================================================
+class UIComponent:
+    next_id = 1
+
+    def __init__(self, comp_type, x, y):
+        self.id = UIComponent.next_id
+        UIComponent.next_id += 1
+        self.type = comp_type
+        self.x = x
+        self.y = y
+        self.properties = self._default_properties(comp_type)
+
+    def _default_properties(self, comp_type):
+        if comp_type == "Button":
+            return {
+                "frame": [60, 24, 4],
+                "label": "Button",
+                "state": 0x00,
+                "color": [0x07E0, 0x03E0, 0x0000],
+            }
+        elif comp_type == "Tooltip":
+            return {
+                "frame": [80, 20],
+                "text": "Tooltip",
+                "color": [0xFFFF, 0x0000],
+            }
+        elif comp_type == "ProgressBar":
+            return {
+                "frame": [80, 12],
+                "color": [0xFFFF, 0x07E0],
+                "progress": 50,
+            }
+        elif comp_type == "Switch":
+            return {
+                "width": 50,
+                "height": 26,
+                "track_color": 0x6E6E,
+                "thumb_color": 0xFFFF,
+                "value": False,
+            }
+        elif comp_type == "Slider":
+            return {
+                "width": 100,
+                "height": 20,
+                "track_color": 0x6E6E,
+                "thumb_color": 0xFFFF,
+                "progress_color": 0x07E0,
+                "min_value": 0,
+                "max_value": 100,
+                "current_value": 50,
+            }
+        elif comp_type == "ListItem":
+            return {
+                "width": 120,
+                "height": 22,
+                "text": "List Item",
+                "bg_color": 0x0000,
+                "text_color": 0xFFFF,
+                "border_color": 0x6E6E,
+                "selected": False,
+                "show_border": True,
+            }
+        return {}
+
+    def get_bounds(self):
+        """返回组件的包围盒 (x0, y0, x1, y1)"""
+        p = self.properties
+        if self.type == "Button":
+            w, h = p["frame"][0], p["frame"][1]
+        elif self.type == "Tooltip":
+            w, h = p["frame"][0], p["frame"][1]
+        elif self.type == "ProgressBar":
+            w, h = p["frame"][0], p["frame"][1]
+        elif self.type == "Switch":
+            w, h = p["width"], p["height"]
+        elif self.type == "Slider":
+            w, h = p["width"], p["height"]
+        elif self.type == "ListItem":
+            w, h = p["width"], p["height"]
+        else:
+            w, h = 20, 20
+        return (self.x - w // 2, self.y - h // 2, self.x + w // 2, self.y + h // 2)
+
+    def contains_point(self, px, py):
+        x0, y0, x1, y1 = self.get_bounds()
+        return x0 <= px <= x1 and y0 <= py <= y1
+
+
+# =============================================================================
+# 渲染引擎 - 像素级复制 C 代码的绘制算法
+# =============================================================================
+SCREEN_MAX_ROUND_RADIUS = 64
+SCREEN_MAX_ARC_POINTS = 128
+
+def rgb565_to_rgb888(val):
+    r = (val >> 11) & 0x1F
+    g = (val >> 5) & 0x3F
+    b = val & 0x1F
+    return (r << 3 | r >> 2, g << 2 | g >> 4, b << 3 | b >> 2)
 
 
 def rgb888_to_rgb565(r, g, b):
     return ((r & 0xF8) << 8) | ((g & 0xFC) << 3) | ((b & 0xF8) >> 3)
 
 
-def color_name(val):
-    for name, v in NAMED_COLORS.items():
-        if v == val:
-            return name
-    return f"0x{val:04X}"
+def xor_pixel(current, new_val):
+    """异或模式：相同颜色则反色"""
+    return current ^ new_val
 
 
-# ---------------------------------------------------------------------------
-# 字体 & 组件类型定义
-# ---------------------------------------------------------------------------
-ASCII_FONTS = ["Font_8x16_consola", "Font_8x12_consola",
-               "Font_8x16_times", "Font_8x12_times"]
-UTF_FONTS = ["NULL", "Font_UTF_16x16_YuMincho", "Font_UTF_16x12_YuMincho"]
+class ScreenRenderer:
+    """复制 C 代码 screen.c/st7735.c 的所有绘制逻辑"""
 
-FONT_W = {
-    "Font_8x16_consola": 8, "Font_8x12_consola": 8,
-    "Font_8x16_times": 8, "Font_8x12_times": 8,
-    "Font_UTF_16x16_YuMincho": 16, "Font_UTF_16x12_YuMincho": 16,
-    "NULL": 0,
-}
-FONT_H = {
-    "Font_8x16_consola": 16, "Font_8x12_consola": 12,
-    "Font_8x16_times": 16, "Font_8x12_times": 12,
-    "Font_UTF_16x16_YuMincho": 16, "Font_UTF_16x12_YuMincho": 12,
-    "NULL": 0,
-}
+    def __init__(self):
+        self.width = SCREEN_W
+        self.height = SCREEN_H
+        # 帧缓冲区：每个像素存 RGB565 值
+        self.fb = [[0x0000] * SCREEN_W for _ in range(SCREEN_H)]
+        # 静态缓存：圆弧点（Bresenham算法预计算）
+        self._arc_cache = {}  # {r: [(x,y), ...]}
 
-QUADRANT_OPTIONS = [
-    ("Full Circle", 0x0F),
-    ("Top-Right (Q1)", 0x01), ("Top-Left (Q2)", 0x02),
-    ("Bottom-Left (Q3)", 0x04), ("Bottom-Right (Q4)", 0x08),
-    ("Upper Half", 0x03), ("Lower Half", 0x0C),
-    ("Left Half", 0x06), ("Right Half", 0x09),
-]
+    def _in_bounds(self, x, y):
+        return 0 <= x < self.width and 0 <= y < self.height
 
-# ---------------------------------------------------------------------------
-# UID 计数器
-# ---------------------------------------------------------------------------
-_uid_counter = 0
-
-
-def next_uid():
-    global _uid_counter
-    _uid_counter += 1
-    return _uid_counter
-
-
-# ---------------------------------------------------------------------------
-# UI 组件数据模型
-# ---------------------------------------------------------------------------
-class UIComponent:
-    LCD_W = 128
-    LCD_H = 128
-
-    def __init__(self, comp_type, cx, cy):
-        self.uid = next_uid()
-        self.comp_type = comp_type
-        # ---------- UI 组件 ----------
-        if comp_type == "button":
-            self.props = {
-                "location": [cx, cy], "frame": [30, 14, 3],
-                "label": "OK", "ascii_font": "Font_8x12_consola",
-                "hz_font": "NULL", "color": [0x07E0, 0x0000, 0xFFFF],
-                "state": 0x00,
-            }
-        elif comp_type == "tooltip":
-            self.props = {
-                "location": [cx, cy], "frame": [48, 12],
-                "text": "Tip", "ascii_font": "Font_8x12_consola",
-                "hz_font": "NULL", "color": [0xF800, 0xFFFF],
-            }
-        elif comp_type == "progressbar":
-            self.props = {
-                "location": [cx, cy], "frame": [40, 8],
-                "color": [0xF800, 0x07E0], "progress": 75,
-            }
-        elif comp_type == "switch":
-            self.props = {
-                "location": [cx, cy], "width": 50, "height": 26,
-                "track_color": 0x6E6E, "thumb_color": 0xFFFF, "value": False,
-            }
-        elif comp_type == "slider":
-            self.props = {
-                "location": [cx, cy], "width": 100, "height": 20,
-                "track_color": 0x6E6E, "thumb_color": 0xFFFF,
-                "progress_color": 0x07E0, "min_value": 0,
-                "max_value": 100, "current_value": 50,
-            }
-        elif comp_type == "listitem":
-            self.props = {
-                "location": [cx, cy], "width": 120, "height": 22,
-                "text": "List Item", "font": "Font_8x16_consola",
-                "bg_color": 0x0000, "text_color": 0xFFFF,
-                "border_color": 0x6E6E, "selected": False, "show_border": True,
-            }
-        # ---------- 基本图形 ----------
-        elif comp_type == "rect_solid":
-            self.props = {
-                "location": [cx, cy], "frame": [40, 30],
-                "color": [0x07E0],
-            }
-        elif comp_type == "rect_hollow":
-            self.props = {
-                "location": [cx, cy], "frame": [40, 30],
-                "color": [0xFFFF],
-            }
-        elif comp_type == "rrect_solid":
-            self.props = {
-                "location": [cx, cy], "frame": [40, 24, 5],
-                "color": [0x001F],
-            }
-        elif comp_type == "rrect_hollow":
-            self.props = {
-                "location": [cx, cy], "frame": [40, 24, 5],
-                "color": [0xFFFF],
-            }
-        elif comp_type == "line":
-            self.props = {
-                "location": [max(0, cx - 20), max(0, cy - 15)],
-                "end": [min(self.LCD_W - 1, cx + 20), min(self.LCD_H - 1, cy + 15)],
-                "color": [0xF800],
-            }
-        elif comp_type == "circle":
-            self.props = {
-                "location": [cx, cy], "radius": 20,
-                "quadrant": 0x0F, "color": [0xFFE0],
-            }
-        elif comp_type == "sector":
-            self.props = {
-                "location": [cx, cy], "radius": 20,
-                "quadrant": 0x0F, "color": [0x07FF],
-            }
-        elif comp_type == "label":
-            self.props = {
-                "location": [cx, cy], "text": "Text",
-                "ascii_font": "Font_8x12_consola", "color": [0xFFFF],
-            }
-
-    # ---------- 边界计算 ----------
-    def get_bounds(self):
-        p = self.props
-        loc = p["location"]
-        t = self.comp_type
-
-        if t in ("button", "progressbar"):
-            w, h = p["frame"][0], p["frame"][1]
-            return (loc[0] - w // 2, loc[1] - h // 2,
-                    loc[0] + w // 2, loc[1] + h // 2)
-        elif t in ("switch", "slider"):
-            w, h = p["width"], p["height"]
-            return (loc[0] - w // 2, loc[1] - h // 2,
-                    loc[0] + w // 2, loc[1] + h // 2)
-        elif t == "listitem":
-            w, h = p["width"], p["height"]
-            return (loc[0], loc[1], loc[0] + w, loc[1] + h)
-        elif t in ("rect_solid", "rect_hollow"):
-            w, h = p["frame"][0], p["frame"][1]
-            return (loc[0] - w // 2, loc[1] - h // 2,
-                    loc[0] + w // 2, loc[1] + h // 2)
-        elif t in ("rrect_solid", "rrect_hollow"):
-            w, h = p["frame"][0], p["frame"][1]
-            return (loc[0] - w // 2, loc[1] - h // 2,
-                    loc[0] + w // 2, loc[1] + h // 2)
-        elif t == "tooltip":
-            w, h = p["frame"][0], p["frame"][1]
-            return (loc[0] - w // 2, loc[1] - h // 2,
-                    loc[0] + w // 2 + 2, loc[1] + h // 2 + 2)
-        elif t == "line":
-            x0, y0 = p["location"]
-            x1, y1 = p["end"]
-            return (min(x0, x1), min(y0, y1), max(x0, x1), max(y0, y1))
-        elif t in ("circle", "sector"):
-            r = p["radius"]
-            return (loc[0] - r, loc[1] - r, loc[0] + r, loc[1] + r)
-        elif t == "label":
-            fw = FONT_W.get(p["ascii_font"], 8)
-            fh = FONT_H.get(p["ascii_font"], 12)
-            tw = len(p["text"]) * fw
-            return (loc[0], loc[1], loc[0] + tw, loc[1] + fh)
-        return (0, 0, 0, 0)
-
-    def contains(self, px, py):
-        x0, y0, x1, y1 = self.get_bounds()
-        pad = 4
-        return (x0 - pad <= px <= x1 + pad and y0 - pad <= py <= y1 + pad)
-
-    def display_name(self):
-        p = self.props
-        t = self.comp_type
-        NAMES = {
-            "button":       lambda: f'Button "{p["label"]}"',
-            "tooltip":      lambda: f'Tooltip "{p["text"]}"',
-            "progressbar":  lambda: f'ProgressBar {p["progress"]}%',
-            "switch":       lambda: f'Switch {"ON" if p["value"] else "OFF"}',
-            "slider":       lambda: f'Slider {p["current_value"]}',
-            "listitem":     lambda: f'ListItem "{p["text"]}"',
-            "rect_solid":   lambda: f'RectFill {p["frame"][0]}x{p["frame"][1]}',
-            "rect_hollow":  lambda: f'RectEdge {p["frame"][0]}x{p["frame"][1]}',
-            "rrect_solid":  lambda: f'RRectFill {p["frame"][0]}x{p["frame"][1]}',
-            "rrect_hollow": lambda: f'RRectEdge {p["frame"][0]}x{p["frame"][1]}',
-            "line":         lambda: f'Line',
-            "circle":       lambda: f'Circle r={p["radius"]}',
-            "sector":       lambda: f'Sector r={p["radius"]}',
-            "label":        lambda: f'Label "{p["text"]}"',
-        }
-        return NAMES.get(t, lambda: t)()
-
-
-# ---------------------------------------------------------------------------
-# 圆角矩形辅助
-# ---------------------------------------------------------------------------
-def rounded_rect_points(x0, y0, x1, y1, r):
-    r = min(r, (x1 - x0) // 2, (y1 - y0) // 2)
-    r = max(r, 0)
-    pts = []
-    steps = max(4, r)
-    corners = [
-        (x0 + r, y0 + r, math.pi, 1.5 * math.pi),
-        (x1 - r, y0 + r, 1.5 * math.pi, 2 * math.pi),
-        (x1 - r, y1 - r, 0, 0.5 * math.pi),
-        (x0 + r, y1 - r, 0.5 * math.pi, math.pi),
-    ]
-    for cx, cy, a0, a1 in corners:
-        for i in range(steps + 1):
-            a = a0 + (a1 - a0) * i / steps
-            pts.append(cx + r * math.cos(a))
-            pts.append(cy + r * math.sin(a))
-    return pts
-
-
-# ---------------------------------------------------------------------------
-# LCD 画布
-# ---------------------------------------------------------------------------
-class LCDCanvas:
-    SCALE = 3
-
-    def __init__(self, parent, app, lcd_w=128, lcd_h=128):
-        self.app = app
-        self.LCD_W = lcd_w
-        self.LCD_H = lcd_h
-        self.components = []
-        self.selected = None
-        self._placing_type = None
-        self._drag_offset = None
-
-        frame = tk.Frame(parent)
-        frame.pack(fill=tk.BOTH, expand=True)
-
-        self.canvas = tk.Canvas(frame,
-                                width=self.LCD_W * self.SCALE,
-                                height=self.LCD_H * self.SCALE,
-                                bg="#1a1a2e", highlightthickness=1,
-                                highlightbackground="#444")
-        self.canvas.pack(padx=4, pady=4)
-
-        self.coord_label = tk.Label(frame, text="Coordinate: (-, -)", anchor="w")
-        self.coord_label.pack(fill=tk.X, padx=4)
-
-        self.canvas.bind("<Button-1>", self._on_click)
-        self.canvas.bind("<B1-Motion>", self._on_drag)
-        self.canvas.bind("<ButtonRelease-1>", self._on_release)
-        self.canvas.bind("<Motion>", self._on_motion)
-        self._draw_background()
-
-    def _draw_background(self):
-        s = self.SCALE
-        w, h = self.LCD_W * s, self.LCD_H * s
-        self.canvas.create_rectangle(0, 0, w, h, fill="#000000", outline="#333", tags="bg")
-        for x in range(0, w + 1, 8 * s):
-            self.canvas.create_line(x, 0, x, h, fill="#111", tags="bg")
-        for y in range(0, h + 1, 8 * s):
-            self.canvas.create_line(0, y, w, y, fill="#111", tags="bg")
-
-    def set_placing_mode(self, comp_type):
-        self._placing_type = comp_type
-        self.canvas.config(cursor="crosshair")
-        self.app.set_status(f"Click to place {comp_type}...")
-
-    def _lcd_xy(self, event):
-        return event.x // self.SCALE, event.y // self.SCALE
-
-    def _on_click(self, event):
-        lx, ly = self._lcd_xy(event)
-        if self._placing_type:
-            comp = UIComponent(self._placing_type, lx, ly)
-            self.components.append(comp)
-            self.selected = comp
-            self._placing_type = None
-            self.canvas.config(cursor="")
-            self.app.set_status("Select mode")
-            self.redraw()
-            self.app.show_properties(comp)
+    # ---- 底层像素操作（复制 st7735.c） ----
+    def draw_pixel(self, x, y, color, mode="Nor"):
+        if not self._in_bounds(x, y):
             return
-
-        hit = None
-        for comp in reversed(self.components):
-            if comp.contains(lx, ly):
-                hit = comp
-                break
-        self.selected = hit
-        if hit:
-            self._drag_offset = (lx - hit.props["location"][0],
-                                 ly - hit.props["location"][1])
-        self.redraw()
-        self.app.show_properties(hit)
-
-    def _on_drag(self, event):
-        if not self.selected or not self._drag_offset:
-            return
-        lx, ly = self._lcd_xy(event)
-        dx, dy = self._drag_offset
-        nx = max(0, min(self.LCD_W - 1, lx - dx))
-        ny = max(0, min(self.LCD_H - 1, ly - dy))
-        old = self.selected.props["location"]
-        delta_x = nx - old[0]
-        delta_y = ny - old[1]
-        self.selected.props["location"] = [nx, ny]
-        # 直线需要同步移动终点
-        if "end" in self.selected.props:
-            ex, ey = self.selected.props["end"]
-            self.selected.props["end"] = [ex + delta_x, ey + delta_y]
-        self.redraw()
-        self.app.refresh_properties()
-
-    def _on_release(self, event):
-        self._drag_offset = None
-
-    def _on_motion(self, event):
-        lx, ly = self._lcd_xy(event)
-        if 0 <= lx < self.LCD_W and 0 <= ly < self.LCD_H:
-            self.coord_label.config(text=f"Coordinate: ({lx}, {ly})")
+        if mode == "Xor" and self.fb[y][x] == color:
+            self.fb[y][x] = xor_pixel(self.fb[y][x], color)
         else:
-            self.coord_label.config(text="Coordinate: (-, -)")
+            self.fb[y][x] = color
 
-    def delete_selected(self):
-        if self.selected and self.selected in self.components:
-            self.components.remove(self.selected)
-            self.selected = None
-            self.redraw()
-            self.app.show_properties(None)
-
-    def redraw(self):
-        self.canvas.delete("comp")
-        self.canvas.delete("sel")
-        for comp in self.components:
-            self._draw_component(comp)
-        if self.selected:
-            self._draw_selection(self.selected)
-
-    def _draw_component(self, comp):
-        s = self.SCALE
-        t = comp.comp_type
-        p = comp.props
-        loc = p["location"]
-        sx, sy = loc[0] * s, loc[1] * s
-        lw = max(1, s // 2)
-
-        # --- 矩形类 (location = center) ---
-        if t in ("rect_solid", "rect_hollow", "rrect_solid", "rrect_hollow", "button", "progressbar", "tooltip"):
-            x0, y0, x1, y1 = comp.get_bounds()
-            if t in ("rect_solid", "rect_hollow", "rrect_solid", "rrect_hollow"):
-                color = rgb565_to_hex(p["color"][0])
-            # tooltip 阴影偏移修正
-            if t == "tooltip":
-                x1 -= 2
-                y1 -= 2
-            sx0, sy0 = x0 * s, y0 * s
-            sx1, sy1 = x1 * s, y1 * s
-
-            if t in ("rrect_solid", "rrect_hollow"):
-                r = p["frame"][2] * s
-                pts = rounded_rect_points(sx0, sy0, sx1, sy1, r)
-                if len(pts) >= 6:
-                    if t == "rrect_solid":
-                        self.canvas.create_polygon(pts, fill=color, outline="", tags="comp")
-                    else:
-                        self.canvas.create_polygon(pts, fill="", outline=color, width=lw, tags="comp")
-
-            elif t == "rect_solid":
-                self.canvas.create_rectangle(sx0, sy0, sx1, sy1,
-                                             fill=color, outline="", tags="comp")
-            elif t == "rect_hollow":
-                self.canvas.create_rectangle(sx0, sy0, sx1, sy1,
-                                             fill="", outline=color, width=lw, tags="comp")
-
-            elif t == "button":
-                r = p["frame"][2] * s
-                border_c = rgb565_to_hex(p["color"][0])
-                fill_c = rgb565_to_hex(p["color"][1])
-                text_c = rgb565_to_hex(p["color"][2])
-                pts = rounded_rect_points(sx0, sy0, sx1, sy1, r)
-                if len(pts) >= 6:
-                    if p["state"] == 0x00:
-                        self.canvas.create_polygon(pts, fill="", outline=border_c, width=lw, tags="comp")
-                    else:
-                        self.canvas.create_polygon(pts, fill=fill_c, outline=border_c, width=lw, tags="comp")
-                fn = p["ascii_font"]
-                fs = max(7, FONT_H.get(fn, 12) * s // 2)
-                self.canvas.create_text(sx0 + 2 * s, (sy0 + sy1) / 2,
-                                        text=p["label"], fill=text_c, anchor="w",
-                                        font=("Consolas", fs), tags="comp")
-
-            elif t == "tooltip":
-                bg_c = rgb565_to_hex(p["color"][0])
-                text_c = rgb565_to_hex(p["color"][1])
-                shadow_c = rgb565_to_hex(SHADOW_RGB565)
-                so = 2 * s
-                self.canvas.create_rectangle(sx0 + so, sy0 + so, sx1 + so, sy1 + so,
-                                             fill=shadow_c, outline="", tags="comp")
-                self.canvas.create_rectangle(sx0, sy0, sx1, sy1,
-                                             fill=bg_c, outline="", tags="comp")
-                fn = p["ascii_font"]
-                fs = max(7, FONT_H.get(fn, 12) * s // 2)
-                self.canvas.create_text(sx0 + 4 * s, (sy0 + sy1) / 2,
-                                        text=p["text"], fill=text_c, anchor="w",
-                                        font=("Consolas", fs), tags="comp")
-
-            elif t == "progressbar":
-                border_c = rgb565_to_hex(p["color"][0])
-                fill_c = rgb565_to_hex(p["color"][1])
-                w, h = p["frame"][0], p["frame"][1]
-                r = (h // 2) * s
-                pts = rounded_rect_points(sx0, sy0, sx1, sy1, r)
-                if len(pts) >= 6:
-                    self.canvas.create_polygon(pts, fill="", outline=border_c, width=lw, tags="comp")
-                fill_w = (w - 2) * p["progress"] // 100
-                if fill_w > 0:
-                    fx0, fy0 = sx0 + s, sy0 + s
-                    fx1, fy1 = fx0 + fill_w * s, sy1 - s
-                    fpts = rounded_rect_points(fx0, fy0, fx1, fy1, max(0, r - s))
-                    if len(fpts) >= 6:
-                        self.canvas.create_polygon(fpts, fill=fill_c, outline="", tags="comp")
-
-            # --- Switch ---
-            elif t == "switch":
-                sw = p["width"] * s
-                sh = p["height"] * s
-                rx = sx - sw // 2
-                ry = sy - sh // 2
-                r = sh // 2
-                track_c = rgb565_to_hex(0x07E0 if p["value"] else 0x6E6E)
-                thumb_c = rgb565_to_hex(p["thumb_color"])
-                pts = rounded_rect_points(rx, ry, rx + sw, ry + sh, r)
-                if len(pts) >= 6:
-                    self.canvas.create_polygon(pts, fill=track_c, outline="", tags="comp")
-                tr = r - 2 * s
-                offset = (sw // 2 - r) * (1 if p["value"] else -1)
-                tx = sx + offset
-                ty = sy
-                self.canvas.create_arc(tx - tr, ty - tr, tx + tr, ty + tr,
-                                        start=0, extent=360, style="pieslice",
-                                        fill=thumb_c, outline="", tags="comp")
-
-            # --- Slider ---
-            elif t == "slider":
-                sl = p["width"] * s
-                sh = p["height"] * s
-                rx = sx - sl // 2
-                ry = sy - sh // 2
-                r = sh // 2
-                track_c = rgb565_to_hex(p["track_color"])
-                prog_c = rgb565_to_hex(p["progress_color"])
-                thumb_c = rgb565_to_hex(p["thumb_color"])
-                pts = rounded_rect_points(rx, ry, rx + sl, ry + sh, r)
-                if len(pts) >= 6:
-                    self.canvas.create_polygon(pts, fill=track_c, outline="", tags="comp")
-                rng = p["max_value"] - p["min_value"]
-                if rng <= 0: rng = 1
-                prog = (p["current_value"] - p["min_value"]) * (sl - 2 * s) // rng
-                if prog > 0:
-                    fx0, fy0 = rx + s, ry + s
-                    fx1, fy1 = fx0 + prog, ry + sh - s
-                    fpts = rounded_rect_points(fx0, fy0, fx1, fy1, max(0, r - s))
-                    if len(fpts) >= 6:
-                        self.canvas.create_polygon(fpts, fill=prog_c, outline="", tags="comp")
-                tw = sh
-                th = sh - 2 * s
-                tr = th // 2
-                tx0 = sx - tw // 2
-                ty0 = sy - th // 2
-                tpts = rounded_rect_points(tx0, ty0, tx0 + tw, ty0 + th, tr)
-                if len(tpts) >= 6:
-                    self.canvas.create_polygon(tpts, fill=thumb_c, outline="", tags="comp")
-
-            # --- ListItem ---
-            elif t == "listitem":
-                x0, y0 = loc[0] * s, loc[1] * s
-                w, h = p["width"] * s, p["height"] * s
-                bg_c = rgb565_to_hex(p["bg_color"])
-                bd_c = rgb565_to_hex(p["border_color"])
-                self.canvas.create_rectangle(x0, y0, x0 + w, y0 + h,
-                                             fill=bg_c, outline=bd_c, width=lw, tags="comp")
-                fn = p["font"]
-                fs = max(7, FONT_H.get(fn, 12) * s // 2)
-                text_c = rgb565_to_hex(p["text_color"])
-                self.canvas.create_text(x0 + 4 * s, y0 + h // 2,
-                                        text=p["text"], fill=text_c, anchor="w",
-                                        font=("Consolas", fs), tags="comp")
-                if p["selected"]:
-                    self.canvas.create_rectangle(x0, y0, x0 + 3 * s, y0 + h,
-                                                  fill=text_c, outline="", tags="comp")
-
-        # --- 直线 ---
-        elif t == "line":
-            color = rgb565_to_hex(p["color"][0])
-            ex, ey = p["end"]
-            self.canvas.create_line(sx, sy, ex * s, ey * s,
-                                    fill=color, width=lw, tags="comp")
-
-        # --- 圆弧 ---
-        elif t == "circle":
-            color = rgb565_to_hex(p["color"][0])
-            r = p["radius"] * s
-            mask = p["quadrant"]
-            for q, (qx, qy, sa, ea) in [
-                (0x01, (sx, sy, -90, 0)), (0x02, (sx, sy, -180, -90)),
-                (0x04, (sx, sy, 90, 180)), (0x08, (sx, sy, 0, 90)),
-            ]:
-                if mask & q:
-                    self.canvas.create_arc(qx - r, qy - r, qx + r, qy + r,
-                                           start=sa, extent=ea, style="arc",
-                                           outline=color, width=lw, tags="comp")
-
-        # --- 扇形 ---
-        elif t == "sector":
-            color = rgb565_to_hex(p["color"][0])
-            r = p["radius"] * s
-            mask = p["quadrant"]
-            for q, (qx, qy, sa, ea) in [
-                (0x01, (sx, sy, -90, 0)), (0x02, (sx, sy, -180, -90)),
-                (0x04, (sx, sy, 90, 180)), (0x08, (sx, sy, 0, 90)),
-            ]:
-                if mask & q:
-                    self.canvas.create_arc(qx - r, qy - r, qx + r, qy + r,
-                                           start=sa, extent=ea, style="pieslice",
-                                           fill=color, outline="", tags="comp")
-
-        # --- 文本标签 ---
-        elif t == "label":
-            color = rgb565_to_hex(p["color"][0])
-            fn = p["ascii_font"]
-            fs = max(7, FONT_H.get(fn, 12) * s // 2)
-            self.canvas.create_text(sx, sy, text=p["text"], fill=color,
-                                    anchor="nw", font=("Consolas", fs), tags="comp")
-
-    def _draw_selection(self, comp):
-        s = self.SCALE
-        x0, y0, x1, y1 = comp.get_bounds()
-        pad = 3 * s
-        self.canvas.create_rectangle(x0 * s - pad, y0 * s - pad,
-                                     x1 * s + pad, y1 * s + pad,
-                                     outline="#00BFFF", width=2,
-                                     dash=(6, 3), tags="sel")
-
-
-# ---------------------------------------------------------------------------
-# 属性面板
-# ---------------------------------------------------------------------------
-class PropertyPanel:
-    def __init__(self, parent, app):
-        self.app = app
-        self.comp = None
-        self._widgets = {}
-
-        container = tk.Frame(parent)
-        container.pack(fill=tk.BOTH, expand=True)
-        tk.Label(container, text="Properties", font=("", 11, "bold")).pack(anchor="w", padx=4, pady=2)
-
-        self.scroll_canvas = tk.Canvas(container, highlightthickness=0)
-        scrollbar = tk.Scrollbar(container, orient="vertical", command=self.scroll_canvas.yview)
-        self.inner = tk.Frame(self.scroll_canvas)
-        self.inner.bind("<Configure>",
-                        lambda e: self.scroll_canvas.configure(scrollregion=self.scroll_canvas.bbox("all")))
-        self.scroll_canvas.create_window((0, 0), window=self.inner, anchor="nw")
-        self.scroll_canvas.configure(yscrollcommand=scrollbar.set)
-        self.scroll_canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
-
-        self._show_placeholder()
-
-    def _show_placeholder(self):
-        tk.Label(self.inner, text="No component selected", fg="gray").pack(padx=8, pady=20)
-
-    def show(self, comp):
-        for w in self.inner.winfo_children():
-            w.destroy()
-        self._widgets.clear()
-        self.comp = comp
-        if comp is None:
-            self._show_placeholder()
+    def draw_hor_line(self, x0, x1, y, color, mode="Nor"):
+        """水平线 - 复制 st7735.c ST7735_DrawHorLine"""
+        if y < 0 or y >= self.height:
             return
-
-        row = 0
-        tk.Label(self.inner, text=comp.display_name(), font=("", 10, "bold")).grid(
-            row=row, column=0, columnspan=3, sticky="w", padx=4, pady=(4, 2))
-        row += 1
-        row = self._label(row, f"Type: {comp.comp_type}")
-
-        t = comp.comp_type
-        p = comp.props
-
-        # ===== UI 组件 =====
-        if t == "button":
-            row = self._spin(row, "Center X", "location", 0)
-            row = self._spin(row, "Center Y", "location", 1)
-            row = self._spin(row, "Width", "frame", 0, 1, 255)
-            row = self._spin(row, "Height", "frame", 1, 1, 255)
-            row = self._spin(row, "Radius", "frame", 2, 0, 64)
-            row = self._entry(row, "Label", "label")
-            row = self._opt(row, "ASCII Font", "ascii_font", ASCII_FONTS)
-            row = self._opt(row, "UTF Font", "hz_font", UTF_FONTS)
-            row = self._color(row, "Border Color", "color", 0)
-            row = self._color(row, "Fill Color", "color", 1)
-            row = self._color(row, "Text Color", "color", 2)
-            row = self._opt(row, "State", "state",
-                            [("0x00 Normal", 0x00), ("0xFF Pressed", 0xFF)])
-
-        elif t == "tooltip":
-            row = self._spin(row, "Center X", "location", 0)
-            row = self._spin(row, "Center Y", "location", 1)
-            row = self._spin(row, "Width", "frame", 0, 1, 255)
-            row = self._spin(row, "Height", "frame", 1, 1, 255)
-            row = self._entry(row, "Text", "text")
-            row = self._opt(row, "ASCII Font", "ascii_font", ASCII_FONTS)
-            row = self._opt(row, "UTF Font", "hz_font", UTF_FONTS)
-            row = self._color(row, "BG Color", "color", 0)
-            row = self._color(row, "Text Color", "color", 1)
-
-        elif t == "progressbar":
-            row = self._spin(row, "Center X", "location", 0)
-            row = self._spin(row, "Center Y", "location", 1)
-            row = self._spin(row, "Width", "frame", 0, 1, 255)
-            row = self._spin(row, "Height", "frame", 1, 1, 255)
-            row = self._color(row, "Border Color", "color", 0)
-            row = self._color(row, "Fill Color", "color", 1)
-            row = self._scale(row, "Progress", "progress", 0, 100)
-
-        elif t == "switch":
-            row = self._spin(row, "Center X", "location", 0)
-            row = self._spin(row, "Center Y", "location", 1)
-            row = self._spin(row, "Width", "width", None, 1, 255)
-            row = self._spin(row, "Height", "height", None, 1, 255)
-            row = self._color(row, "Track Color", "track_color", None)
-            row = self._color(row, "Thumb Color", "thumb_color", None)
-            row = self._opt(row, "Value", "value",
-                            [("OFF (false)", False), ("ON (true)", True)])
-
-        elif t == "slider":
-            row = self._spin(row, "Center X", "location", 0)
-            row = self._spin(row, "Center Y", "location", 1)
-            row = self._spin(row, "Width", "width", None, 1, 255)
-            row = self._spin(row, "Height", "height", None, 1, 255)
-            row = self._color(row, "Track Color", "track_color", None)
-            row = self._color(row, "Thumb Color", "thumb_color", None)
-            row = self._color(row, "Progress Color", "progress_color", None)
-            row = self._spin(row, "Min Value", "min_value", None, -32768, 32767)
-            row = self._spin(row, "Max Value", "max_value", None, -32768, 32767)
-            row = self._spin(row, "Current Value", "current_value", None, -32768, 32767)
-
-        elif t == "listitem":
-            row = self._spin(row, "X", "location", 0)
-            row = self._spin(row, "Y", "location", 1)
-            row = self._spin(row, "Width", "width", None, 1, 255)
-            row = self._spin(row, "Height", "height", None, 1, 255)
-            row = self._entry(row, "Text", "text")
-            row = self._opt(row, "Font", "font", ASCII_FONTS)
-            row = self._color(row, "BG Color", "bg_color", None)
-            row = self._color(row, "Text Color", "text_color", None)
-            row = self._color(row, "Border Color", "border_color", None)
-            row = self._opt(row, "Selected", "selected",
-                            [("No", False), ("Yes", True)])
-            row = self._opt(row, "Show Border", "show_border",
-                            [("No", False), ("Yes", True)])
-
-        # ===== 基本图形 =====
-        elif t in ("rect_solid", "rect_hollow"):
-            row = self._spin(row, "Center X", "location", 0)
-            row = self._spin(row, "Center Y", "location", 1)
-            row = self._spin(row, "Width", "frame", 0, 1, 255)
-            row = self._spin(row, "Height", "frame", 1, 1, 255)
-            row = self._color(row, "Color", "color", 0)
-
-        elif t in ("rrect_solid", "rrect_hollow"):
-            row = self._spin(row, "Center X", "location", 0)
-            row = self._spin(row, "Center Y", "location", 1)
-            row = self._spin(row, "Width", "frame", 0, 1, 255)
-            row = self._spin(row, "Height", "frame", 1, 1, 255)
-            row = self._spin(row, "Radius", "frame", 2, 0, 64)
-            row = self._color(row, "Color", "color", 0)
-
-        elif t == "line":
-            row = self._spin(row, "Start X", "location", 0)
-            row = self._spin(row, "Start Y", "location", 1)
-            row = self._spin(row, "End X", "end", 0)
-            row = self._spin(row, "End Y", "end", 1)
-            row = self._color(row, "Color", "color", 0)
-
-        elif t in ("circle", "sector"):
-            row = self._spin(row, "Center X", "location", 0)
-            row = self._spin(row, "Center Y", "location", 1)
-            row = self._spin(row, "Radius", "radius", None, 1, 64)
-            row = self._opt(row, "Quadrant", "quadrant", QUADRANT_OPTIONS)
-            row = self._color(row, "Color", "color", 0)
-
-        elif t == "label":
-            row = self._spin(row, "X", "location", 0)
-            row = self._spin(row, "Y", "location", 1)
-            row = self._entry(row, "Text", "text")
-            row = self._opt(row, "Font", "ascii_font", ASCII_FONTS)
-            row = self._color(row, "Color", "color", 0)
-
-    def refresh(self):
-        if not self.comp:
+        x_start, x_end = (x0, x1) if x0 < x1 else (x1, x0)
+        x_start = max(0, x_start)
+        x_end = min(self.width - 1, x_end)
+        if x_start > x_end:
             return
-        for key, (widget, prop_key, idx) in self._widgets.items():
-            try:
-                if isinstance(widget, tk.Spinbox):
-                    widget.delete(0, tk.END)
-                    val = self.comp.props[prop_key]
-                    widget.insert(0, str(val if idx is None else val[idx]))
-                elif isinstance(widget, tk.Entry):
-                    widget.delete(0, tk.END)
-                    widget.insert(0, str(self.comp.props[prop_key]))
-                elif isinstance(widget, tk.Scale):
-                    widget.set(self.comp.props[prop_key])
-            except Exception:
-                pass
+        for x in range(x_start, x_end + 1):
+            val = xor_pixel(self.fb[y][x], color) if mode == "Xor" else color
+            if self.fb[y][x] != val:
+                self.fb[y][x] = val
 
-    # ---------- 辅助构建方法 ----------
-    def _label(self, row, text):
-        tk.Label(self.inner, text=text, fg="gray").grid(
-            row=row, column=0, columnspan=3, sticky="w", padx=4, pady=1)
-        return row + 1
+    def draw_ver_line(self, x, y0, y1, color, mode="Nor"):
+        """垂直线 - 复制 st7735.c ST7735_DrawVerLine"""
+        if x < 0 or x >= self.width:
+            return
+        y_start, y_end = (y0, y1) if y0 < y1 else (y1, y0)
+        y_start = max(0, y_start)
+        y_end = min(self.height - 1, y_end)
+        if y_start > y_end:
+            return
+        for y in range(y_start, y_end + 1):
+            val = xor_pixel(self.fb[y][x], color) if mode == "Xor" else color
+            if self.fb[y][x] != val:
+                self.fb[y][x] = val
 
-    def _spin(self, row, label, prop_key, idx, lo=-128, hi=127):
-        tk.Label(self.inner, text=label).grid(row=row, column=0, sticky="w", padx=4, pady=1)
-        val = self.comp.props[prop_key]
-        var = tk.StringVar(value=str(val if idx is None else val[idx]))
-        sb = tk.Spinbox(self.inner, from_=lo, to=hi, textvariable=var, width=6,
-                        command=lambda: self._apply_spin(prop_key, idx, var))
-        sb.bind("<Return>", lambda e: self._apply_spin(prop_key, idx, var))
-        sb.bind("<FocusOut>", lambda e: self._apply_spin(prop_key, idx, var))
-        sb.grid(row=row, column=1, columnspan=2, sticky="w", padx=4, pady=1)
-        self._widgets[f"{prop_key}_{idx}"] = (sb, prop_key, idx)
-        return row + 1
+    def draw_rect_solid(self, x0, x1, y0, y1, color, mode="Nor"):
+        """实心矩形 - 复制 screen.c SCREEN_DrawRectSolid"""
+        x_start = min(x0, x1)
+        x_end = max(x0, x1)
+        y_start = min(y0, y1)
+        y_end = max(y0, y1)
+        for y in range(y_start, y_end + 1):
+            self.draw_hor_line(x_start, x_end, y, color, mode)
 
-    def _entry(self, row, label, prop_key):
-        tk.Label(self.inner, text=label).grid(row=row, column=0, sticky="w", padx=4, pady=1)
-        var = tk.StringVar(value=str(self.comp.props[prop_key]))
-        e = tk.Entry(self.inner, textvariable=var, width=16)
-        e.bind("<Return>", lambda ev: self._apply_text(prop_key, var))
-        e.bind("<FocusOut>", lambda ev: self._apply_text(prop_key, var))
-        e.grid(row=row, column=1, columnspan=2, sticky="w", padx=4, pady=1)
-        self._widgets[prop_key] = (e, prop_key, 0)
-        return row + 1
+    def draw_rect_hollow(self, x0, x1, y0, y1, color, mode="Nor"):
+        """空心矩形 - 复制 screen.c SCREEN_DrawRectHollow"""
+        self.draw_hor_line(x0, x1, y0, color, mode)
+        self.draw_hor_line(x0, x1, y1, color, mode)
+        self.draw_ver_line(x0, y0 + 1, y1 - 1, color, mode)
+        self.draw_ver_line(x1, y0 + 1, y1 - 1, color, mode)
 
-    def _opt(self, row, label, prop_key, options):
-        tk.Label(self.inner, text=label).grid(row=row, column=0, sticky="w", padx=4, pady=1)
-        var = tk.StringVar()
+    # ---- 圆弧预计算（Bresenham算法，复制 screen.c SCREEN_DrawQuarArc） ----
+    def _get_arc_points(self, r):
+        """使用 Bresenham 算法预计算1/8圆弧点，复制 screen.c 静态缓存逻辑"""
+        if r == 0:
+            return []
+        if r in self._arc_cache:
+            return self._arc_cache[r]
 
-        if isinstance(options[0], tuple):
-            display = [o[0] for o in options]
-            values = [o[1] for o in options]
-            cur = self.comp.props[prop_key]
-            for i, v in enumerate(values):
-                if v == cur:
-                    var.set(display[i])
-                    break
+        if r > SCREEN_MAX_ROUND_RADIUS:
+            r = SCREEN_MAX_ROUND_RADIUS
+
+        points = []
+        x = 0
+        y = r
+        d = 3 - 2 * r
+
+        while x <= y:
+            points.append((x, y))
+            if x < y:
+                points.append((y, x))
+            if d < 0:
+                d = d + 4 * x + 6
             else:
-                var.set(display[0])
-            om = tk.OptionMenu(self.inner, var, *display)
-            om.config(width=16)
-            om.grid(row=row, column=1, columnspan=2, sticky="w", padx=4, pady=1)
+                d = d + 4 * (x - y) + 10
+                y -= 1
+            x += 1
 
-            def _cb(dl=display, vl=values, v=var, pk=prop_key):
-                idx = dl.index(v.get())
-                self.comp.props[pk] = vl[idx]
-                self.app.canvas.redraw()
-            var.trace_add("write", lambda *a: _cb())
+        self._arc_cache[r] = points
+        return points
+
+    def draw_quar_arc(self, cx, cy, r, quadrant_mask, color, mode="Nor"):
+        """四分之一圆弧 - 复制 screen.c SCREEN_DrawQuarArc"""
+        if r == 0:
+            return
+        r = min(r, SCREEN_MAX_ROUND_RADIUS)
+        arc_pts = self._get_arc_points(r)
+
+        for (x, y) in arc_pts:
+            if quadrant_mask & 0x01:  # Q1: +x, -y
+                self.draw_pixel(cx + x, cy - y, color, mode)
+            if quadrant_mask & 0x02:  # Q2: -x, -y
+                self.draw_pixel(cx - x, cy - y, color, mode)
+            if quadrant_mask & 0x04:  # Q3: -x, +y
+                self.draw_pixel(cx - x, cy + y, color, mode)
+            if quadrant_mask & 0x08:  # Q4: +x, +y
+                self.draw_pixel(cx + x, cy + y, color, mode)
+
+    # ---- 圆角矩形（复制 screen.c 完整逻辑） ----
+    def draw_round_rect_solid(self, x0, x1, y0, y1, radius, color, mode="Nor"):
+        """实心圆角矩形 - 像素级复制 screen.c SCREEN_DrawRoundRectSolid"""
+        x_start = min(x0, x1)
+        x_end = max(x0, x1)
+        y_start = min(y0, y1)
+        y_end = max(y0, y1)
+        w = x_end - x_start
+        h = y_end - y_start
+
+        if w <= 0 or h <= 0:
+            return
+
+        radius = min(radius, w // 2, h // 2)
+
+        if radius == 0:
+            self.draw_rect_solid(x_start, x_end, y_start, y_end, color, mode)
+            return
+
+        # 预计算圆角边界
+        left_bound = {}
+        arc_pts = self._get_arc_points(radius)
+        for (x, y) in arc_pts:
+            left_bound[y] = x
+            left_bound[x] = y
+
+        # 逐行绘制
+        for row in range(y_start, y_end + 1):
+            line_start = x_start
+            line_end = x_end
+
+            if row < y_start + radius:
+                dy = row - (y_start + radius)
+                offset = left_bound.get(abs(dy), 0)
+                line_start = x_start + (radius - offset)
+                line_end = x_end - (radius - offset)
+            elif row > y_end - radius:
+                dy = row - (y_end - radius)
+                offset = left_bound.get(abs(dy), 0)
+                line_start = x_start + (radius - offset)
+                line_end = x_end - (radius - offset)
+
+            if line_start <= line_end:
+                self.draw_hor_line(line_start, line_end, row, color, mode)
+
+    def draw_round_rect_hollow(self, x0, x1, y0, y1, radius, color, mode="Nor"):
+        """空心圆角矩形 - 像素级复制 screen.c SCREEN_DrawRoundRectHollow"""
+        x_start = min(x0, x1)
+        x_end = max(x0, x1)
+        y_start = min(y0, y1)
+        y_end = max(y0, y1)
+        w = x_end - x_start
+        h = y_end - y_start
+
+        if w <= 0 or h <= 0:
+            return
+
+        radius = min(radius, w // 2, h // 2)
+
+        if radius == 0:
+            self.draw_rect_hollow(x_start, x_end, y_start, y_end, color, mode)
+            return
+
+        # 四个圆心
+        tl_cx, tl_cy = x_start + radius, y_start + radius
+        tr_cx, tr_cy = x_end - radius, y_start + radius
+        bl_cx, bl_cy = x_start + radius, y_end - radius
+        br_cx, br_cy = x_end - radius, y_end - radius
+
+        # 四条边（圆弧之间）
+        if w > 2 * radius:
+            self.draw_hor_line(x_start + radius + 1, x_end - radius - 1, y_start, color, mode)
+            self.draw_hor_line(x_start + radius + 1, x_end - radius - 1, y_end, color, mode)
+        if h > 2 * radius:
+            self.draw_ver_line(x_start, y_start + radius + 1, y_end - radius - 1, color, mode)
+            self.draw_ver_line(x_end, y_start + radius + 1, y_end - radius - 1, color, mode)
+
+        # 四个圆角
+        self.draw_quar_arc(tl_cx, tl_cy, radius, 0x02, color, mode)  # 左上
+        self.draw_quar_arc(tr_cx, tr_cy, radius, 0x01, color, mode)  # 右上
+        self.draw_quar_arc(bl_cx, bl_cy, radius, 0x04, color, mode)  # 左下
+        self.draw_quar_arc(br_cx, br_cy, radius, 0x08, color, mode)  # 右下
+
+    def to_image(self):
+        """将帧缓冲区转换为 PIL RGB Image"""
+        from PIL import Image
+        img = Image.new("RGB", (SCREEN_W, SCREEN_H))
+        for y in range(SCREEN_H):
+            for x in range(SCREEN_W):
+                r, g, b = rgb565_to_rgb888(self.fb[y][x])
+                img.putpixel((x, y), (r, g, b))
+        return img
+
+
+def draw_component(renderer, comp, selected=False):
+    """将单个组件绘制到渲染器 - 像素级复制 screen_ui.c 的绘制逻辑"""
+    p = comp.properties
+    x0, y0, x1, y1 = comp.get_bounds()
+
+    # ---- Button ----
+    if comp.type == "Button":
+        border_c = p["color"][0]
+        fill_c = p["color"][1]
+        text_c = p["color"][2]
+
+        if p["state"] == 0x00:
+            # 未按下 - 空心圆角矩形
+            renderer.draw_round_rect_hollow(x0, x1, y0, y1, p["frame"][2], border_c)
         else:
-            var.set(self.comp.props[prop_key])
-            om = tk.OptionMenu(self.inner, var, *options)
-            om.config(width=16)
-            om.grid(row=row, column=1, columnspan=2, sticky="w", padx=4, pady=1)
+            # 按下 - 实心圆角矩形
+            renderer.draw_round_rect_solid(x0, x1, y0, y1, p["frame"][2], fill_c)
+        # 文字占位（简化显示）
+        for dx in range(-len(p["label"]) * 3, len(p["label"]) * 3):
+            renderer.draw_pixel(comp.x + dx, comp.y, text_c)
 
-            def _cb_str(v=var, pk=prop_key):
-                self.comp.props[pk] = v.get()
-                self.app.canvas.redraw()
-            var.trace_add("write", lambda *a: _cb_str())
+    # ---- Tooltip ----
+    elif comp.type == "Tooltip":
+        bg_c = p["color"][0]
+        text_c = p["color"][1]
+        # 阴影 (+2偏移)
+        renderer.draw_rect_solid(x0 + 2, x1 + 2, y0 + 2, y1 + 2, 0x4208)
+        # 背景
+        renderer.draw_rect_solid(x0, x1, y0, y1, bg_c)
 
-        self._widgets[label] = (om, prop_key, 0)
-        return row + 1
+    # ---- ProgressBar ----
+    elif comp.type == "ProgressBar":
+        w, h = p["frame"]
+        border_c = p["color"][0]
+        fill_c = p["color"][1]
+        radius = h // 2
+        # 边框
+        renderer.draw_round_rect_hollow(x0, x1, y0, y1, radius, border_c)
+        # 进度填充
+        progress = max(0, min(100, p["progress"]))
+        fill_w = max(0, (w - 2) * progress // 100 - 1)
+        if fill_w > 0 and radius > 0:
+            renderer.draw_round_rect_solid(x0 + 1, x0 + 1 + fill_w, y0 + 1, y1 - 1,
+                                            max(0, radius - 1), fill_c)
 
-    def _color(self, row, label, prop_key, idx):
-        tk.Label(self.inner, text=label).grid(row=row, column=0, sticky="w", padx=4, pady=1)
-        if idx is None:
-            val = self.comp.props[prop_key]
-        else:
-            val = self.comp.props[prop_key][idx]
-        btn = tk.Button(self.inner, bg=rgb565_to_hex(val), width=3, relief="solid",
-                        command=lambda: self._pick_color(prop_key, idx))
-        btn.grid(row=row, column=1, sticky="w", padx=2, pady=1)
-        lbl = tk.Label(self.inner, text=color_name(val), width=10, anchor="w")
-        lbl.grid(row=row, column=2, sticky="w", padx=2, pady=1)
-        self._widgets[f"{prop_key}_{idx}"] = (btn, prop_key, idx)
-        return row + 1
+    # ---- Switch ----
+    elif comp.type == "Switch":
+        w, h = p["width"], p["height"]
+        radius = h // 2
+        track_c = 0x07E0 if p["value"] else p["track_color"]
+        thumb_c = p["thumb_color"]
+        # 轨道
+        renderer.draw_round_rect_solid(x0, x1, y0, y1, radius, track_c)
+        # 圆形滑块
+        offset = (w // 2 - radius) if p["value"] else -(w // 2 - radius)
+        tx, ty = comp.x + offset, comp.y
+        tr = radius - 2
+        for dy in range(-tr, tr + 1):
+            for dx in range(-tr, tr + 1):
+                if dx * dx + dy * dy <= tr * tr:
+                    renderer.draw_pixel(tx + dx, ty + dy, thumb_c)
 
-    def _scale(self, row, label, prop_key, lo, hi):
-        tk.Label(self.inner, text=label).grid(row=row, column=0, sticky="w", padx=4, pady=1)
-        var = tk.IntVar(value=self.comp.props[prop_key])
-        sc = tk.Scale(self.inner, from_=lo, to=hi, orient=tk.HORIZONTAL, variable=var,
-                      length=140, command=lambda v: self._apply_scale(prop_key, int(v)))
-        sc.grid(row=row, column=1, columnspan=2, sticky="w", padx=4, pady=1)
-        self._widgets[prop_key] = (sc, prop_key, 0)
-        return row + 1
+    # ---- Slider ----
+    elif comp.type == "Slider":
+        w, h = p["width"], p["height"]
+        radius = h // 2
+        # 轨道
+        renderer.draw_round_rect_solid(x0, x1, y0, y1, radius, p["track_color"])
+        # 进度填充
+        val_range = max(1, p["max_value"] - p["min_value"])
+        progress = (p["current_value"] - p["min_value"]) * 100 // val_range
+        progress = max(0, min(100, progress))
+        fill_w = (w - 2) * progress // 100
+        if fill_w > 0:
+            renderer.draw_round_rect_solid(x0 + 1, x0 + 1 + fill_w, y0 + 1, y1 - 1,
+                                            max(0, radius - 1), p["progress_color"])
+        # 滑块（矩形）
+        thumb_w = h
+        thumb_h = h - 2
+        thumb_radius = thumb_h // 2
+        tx0, tx1 = comp.x - thumb_w // 2, comp.x + thumb_w // 2
+        ty0, ty1 = comp.y - thumb_h // 2, comp.y + thumb_h // 2
+        renderer.draw_round_rect_solid(tx0, tx1, ty0, ty1, thumb_radius, p["thumb_color"])
 
-    # ---------- 值应用 ----------
-    def _apply_spin(self, prop_key, idx, var):
-        try:
-            val = int(var.get())
-            if idx is not None:
-                self.comp.props[prop_key][idx] = val
-            else:
-                self.comp.props[prop_key] = val
-            self.app.canvas.redraw()
-        except ValueError:
-            pass
+    # ---- ListItem ----
+    elif comp.type == "ListItem":
+        # 背景
+        renderer.draw_rect_solid(x0, x1, y0, y1, p["bg_color"])
+        # 边框
+        if p["show_border"]:
+            renderer.draw_rect_hollow(x0, x1, y0, y1, p["border_color"])
+        # 选中指示条
+        if p["selected"]:
+            renderer.draw_rect_solid(x0, x0 + 3, y0, y1, p["text_color"])
 
-    def _apply_text(self, prop_key, var):
-        self.comp.props[prop_key] = var.get()
-        self.app.canvas.redraw()
-
-    def _apply_scale(self, prop_key, val):
-        self.comp.props[prop_key] = val
-        self.app.canvas.redraw()
-
-    # ---------- 颜色选择器 ----------
-    def _pick_color(self, prop_key, idx):
-        if idx is None:
-            current = self.comp.props[prop_key]
-        else:
-            current = self.comp.props[prop_key][idx]
-        top = tk.Toplevel(self.app.root)
-        top.title("Pick Color")
-        top.resizable(False, False)
-        top.grab_set()
-        chosen = [current]
-
-        row = 0
-        tk.Label(top, text="Named Colors", font=("", 10, "bold")).grid(
-            row=row, column=0, columnspan=4, sticky="w", padx=8, pady=(8, 4))
-        row += 1
-
-        for name, val in NAMED_COLORS.items():
-            hex_c = rgb565_to_hex(val)
-            btn = tk.Button(top, bg=hex_c, width=20, height=1, relief="solid",
-                            text=name.replace("SCREEN_", ""), font=("", 7),
-                            fg="white" if val < 0x8000 else "black")
-            btn.grid(row=row, column=0, columnspan=4, sticky="w", padx=8, pady=1)
-
-            def _pick(v=val, t=top):
-                chosen[0] = v
-                t.destroy()
-            btn.config(command=_pick)
-            row += 1
-
-        row += 1
-        tk.Label(top, text="Custom RGB (0-255)", font=("", 9, "bold")).grid(
-            row=row, column=0, columnspan=4, sticky="w", padx=8, pady=(8, 2))
-        row += 1
-
-        r0 = ((current >> 11) & 0x1F) * 255 // 31
-        g0 = ((current >> 5) & 0x3F) * 255 // 63
-        b0 = (current & 0x1F) * 255 // 31
-        r_var = tk.StringVar(value=str(r0))
-        g_var = tk.StringVar(value=str(g0))
-        b_var = tk.StringVar(value=str(b0))
-
-        preview = tk.Label(top, text="  Preview  ", bg=rgb565_to_hex(current),
-                           relief="solid", width=10)
-        preview.grid(row=row, column=0, columnspan=4, padx=8, pady=4)
-        row += 1
-
-        for i, (lbl, var) in enumerate([("R", r_var), ("G", g_var), ("B", b_var)]):
-            tk.Label(top, text=lbl).grid(row=row, column=i, padx=2)
-            tk.Entry(top, textvariable=var, width=5).grid(row=row + 1, column=i, padx=2)
-        row += 2
-
-        def _apply_custom():
-            try:
-                r = max(0, min(255, int(r_var.get())))
-                g = max(0, min(255, int(g_var.get())))
-                b = max(0, min(255, int(b_var.get())))
-                val = rgb888_to_rgb565(r, g, b)
-                preview.config(bg=rgb565_to_hex(val))
-                chosen[0] = val
-            except ValueError:
-                pass
-
-        tk.Button(top, text="Preview", command=_apply_custom).grid(
-            row=row, column=0, columnspan=2, padx=4, pady=4)
-        row += 1
-
-        def _on_close():
-            if idx is None:
-                self.comp.props[prop_key] = chosen[0]
-            else:
-                self.comp.props[prop_key][idx] = chosen[0]
-            self.app.canvas.redraw()
-            self.show(self.comp)
-            top.destroy()
-
-        tk.Button(top, text="OK", command=_on_close).grid(
-            row=row, column=0, columnspan=4, padx=8, pady=(4, 8))
-        top.protocol("WM_DELETE_WINDOW", _on_close)
+    # ---- 选中高亮 ----
+    if selected:
+        highlight = 0xFFFF
+        renderer.draw_rect_hollow(x0 - 1, x1 + 1, y0 - 1, y1 + 1, highlight)
 
 
-# ---------------------------------------------------------------------------
-# 主应用
-# ---------------------------------------------------------------------------
-SHAPE_TYPES = [
-    ("rect_solid",   "Rect Fill"),
-    ("rect_hollow",  "Rect Edge"),
-    ("rrect_solid",  "RRect Fill"),
-    ("rrect_hollow", "RRect Edge"),
-    ("line",         "Line"),
-    ("circle",       "Circle"),
-    ("sector",       "Sector"),
-    ("label",        "Text"),
-]
+# =============================================================================
+# 代码生成器
+# =============================================================================
+def generate_c_code(components):
+    """根据组件列表生成 C 代码"""
+    lines = []
+    lines.append("/* ========== UI 组件定义 ========== */")
+    lines.append("")
 
-UI_TYPES = [
-    ("button",       "Button"),
-    ("tooltip",      "Tooltip"),
-    ("progressbar",  "ProgBar"),
-    ("switch",       "Switch"),
-    ("slider",       "Slider"),
-    ("listitem",     "ListItem"),
-]
+    # 按类型分组声明
+    decl_lines = []
+    init_lines = []
+
+    for i, comp in enumerate(components):
+        var_name = f"ui_{comp.type.lower()}_{comp.id}"
+        p = comp.properties
+
+        if comp.type == "Button":
+            decl_lines.append(f"static struUI_Button_t {var_name};")
+            init_lines.append(f"    {var_name}.location[0] = {comp.x};")
+            init_lines.append(f"    {var_name}.location[1] = {comp.y};")
+            init_lines.append(f"    {var_name}.frame[0] = {p['frame'][0]};")
+            init_lines.append(f"    {var_name}.frame[1] = {p['frame'][1]};")
+            init_lines.append(f"    {var_name}.frame[2] = {p['frame'][2]};")
+            init_lines.append(f"    strcpy({var_name}.label, \"{p['label']}\");")
+            init_lines.append(f"    {var_name}.ascii_font = (struFont_t *)&Font_8x12_consola;")
+            init_lines.append(f"    {var_name}.hz_font = NULL;")
+            init_lines.append(f"    {var_name}.color[0] = 0x{p['color'][0]:04X};")
+            init_lines.append(f"    {var_name}.color[1] = 0x{p['color'][1]:04X};")
+            init_lines.append(f"    {var_name}.color[2] = 0x{p['color'][2]:04X};")
+            init_lines.append(f"    {var_name}.state = {p['state']:#04x};")
+            init_lines.append(f"    SCREEN_DrawButton(&{var_name});")
+
+        elif comp.type == "Tooltip":
+            decl_lines.append(f"static struUI_Tooltip_t {var_name};")
+            init_lines.append(f"    {var_name}.location[0] = {comp.x};")
+            init_lines.append(f"    {var_name}.location[1] = {comp.y};")
+            init_lines.append(f"    {var_name}.frame[0] = {p['frame'][0]};")
+            init_lines.append(f"    {var_name}.frame[1] = {p['frame'][1]};")
+            init_lines.append(f"    strcpy({var_name}.text, \"{p['text']}\");")
+            init_lines.append(f"    {var_name}.ascii_font = (struFont_t *)&Font_8x12_consola;")
+            init_lines.append(f"    {var_name}.hz_font = NULL;")
+            init_lines.append(f"    {var_name}.color[0] = 0x{p['color'][0]:04X};")
+            init_lines.append(f"    {var_name}.color[1] = 0x{p['color'][1]:04X};")
+            init_lines.append(f"    SCREEN_DrawTooltip(&{var_name});")
+
+        elif comp.type == "ProgressBar":
+            decl_lines.append(f"static struUI_ProgressBar_t {var_name};")
+            init_lines.append(f"    {var_name}.location[0] = {comp.x};")
+            init_lines.append(f"    {var_name}.location[1] = {comp.y};")
+            init_lines.append(f"    {var_name}.frame[0] = {p['frame'][0]};")
+            init_lines.append(f"    {var_name}.frame[1] = {p['frame'][1]};")
+            init_lines.append(f"    {var_name}.color[0] = 0x{p['color'][0]:04X};")
+            init_lines.append(f"    {var_name}.color[1] = 0x{p['color'][1]:04X};")
+            init_lines.append(f"    {var_name}.progress = {p['progress']};")
+            init_lines.append(f"    SCREEN_DrawProgressBar(&{var_name});")
+
+        elif comp.type == "Switch":
+            decl_lines.append(f"static struUI_Switch_t {var_name};")
+            init_lines.append(f"    {var_name}.location[0] = {comp.x};")
+            init_lines.append(f"    {var_name}.location[1] = {comp.y};")
+            init_lines.append(f"    {var_name}.width = {p['width']};")
+            init_lines.append(f"    {var_name}.height = {p['height']};")
+            init_lines.append(f"    {var_name}.track_color = 0x{p['track_color']:04X};")
+            init_lines.append(f"    {var_name}.thumb_color = 0x{p['thumb_color']:04X};")
+            init_lines.append(f"    {var_name}.value = {'true' if p['value'] else 'false'};")
+            init_lines.append(f"    SCREEN_DrawSwitch(&{var_name});")
+
+        elif comp.type == "Slider":
+            decl_lines.append(f"static struUI_Slider_t {var_name};")
+            init_lines.append(f"    {var_name}.location[0] = {comp.x};")
+            init_lines.append(f"    {var_name}.location[1] = {comp.y};")
+            init_lines.append(f"    {var_name}.width = {p['width']};")
+            init_lines.append(f"    {var_name}.height = {p['height']};")
+            init_lines.append(f"    {var_name}.track_color = 0x{p['track_color']:04X};")
+            init_lines.append(f"    {var_name}.thumb_color = 0x{p['thumb_color']:04X};")
+            init_lines.append(f"    {var_name}.progress_color = 0x{p['progress_color']:04X};")
+            init_lines.append(f"    {var_name}.min_value = {p['min_value']};")
+            init_lines.append(f"    {var_name}.max_value = {p['max_value']};")
+            init_lines.append(f"    {var_name}.current_value = {p['current_value']};")
+            init_lines.append(f"    SCREEN_DrawSlider(&{var_name});")
+
+        elif comp.type == "ListItem":
+            decl_lines.append(f"static struUI_ListItem_t {var_name};")
+            init_lines.append(f"    {var_name}.location[0] = {comp.x};")
+            init_lines.append(f"    {var_name}.location[1] = {comp.y};")
+            init_lines.append(f"    {var_name}.width = {p['width']};")
+            init_lines.append(f"    {var_name}.height = {p['height']};")
+            init_lines.append(f"    strcpy({var_name}.text, \"{p['text']}\");")
+            init_lines.append(f"    {var_name}.font = &Font_8x16_consola;")
+            init_lines.append(f"    {var_name}.bg_color = 0x{p['bg_color']:04X};")
+            init_lines.append(f"    {var_name}.text_color = 0x{p['text_color']:04X};")
+            init_lines.append(f"    {var_name}.border_color = 0x{p['border_color']:04X};")
+            init_lines.append(f"    {var_name}.selected = {'true' if p['selected'] else 'false'};")
+            init_lines.append(f"    {var_name}.show_border = {'true' if p['show_border'] else 'false'};")
+            init_lines.append(f"    SCREEN_DrawListItem(&{var_name});")
+
+        init_lines.append("")
+
+    lines.extend(decl_lines)
+    lines.append("")
+    lines.append("/* ========== UI 组件初始化 ========== */")
+    lines.append("void UI_Init(void) {")
+    lines.extend(init_lines)
+    lines.append("}")
+    lines.append("")
+
+    return "\n".join(lines)
 
 
-class LCDUIDesignerApp:
+# =============================================================================
+# 应用程序
+# =============================================================================
+class LCDUIApp:
     def __init__(self):
         self.root = tk.Tk()
-        self.root.title("LCD UI Designer")
-        self.root.minsize(920, 520)
+        self.root.title("LCD UI Designer - ST7735 128x128")
+        self.root.minsize(900, 600)
 
-        # 默认分辨率
-        self.lcd_w_var = tk.IntVar(value=128)
-        self.lcd_h_var = tk.IntVar(value=128)
+        self.components = []
+        self.selected_comp = None
+        self.dragging = False
+        self.drag_offset_x = 0
+        self.drag_offset_y = 0
+        self.panning = False
+        self.pan_start_x = 0
+        self.pan_start_y = 0
 
-        # --- 左侧面板 ---
-        left = tk.Frame(self.root, width=130, relief="ridge", bd=1)
-        left.pack(side=tk.LEFT, fill=tk.Y, padx=2, pady=2)
-        left.pack_propagate(False)
+        # 画布缩放偏移
+        self.canvas_offset_x = 0
+        self.canvas_offset_y = 0
 
-        # 分辨率设置
-        res_frame = tk.Frame(left)
-        res_frame.pack(fill=tk.X, padx=4, pady=(6, 2))
-        tk.Label(res_frame, text="LCD Size:", font=("", 9, "bold")).pack(anchor="w")
-        rf = tk.Frame(res_frame)
-        rf.pack(fill=tk.X)
-        tk.Spinbox(rf, from_=16, to=320, textvariable=self.lcd_w_var, width=4).pack(side=tk.LEFT)
-        tk.Label(rf, text="x").pack(side=tk.LEFT)
-        tk.Spinbox(rf, from_=16, to=320, textvariable=self.lcd_h_var, width=4).pack(side=tk.LEFT)
-        tk.Button(res_frame, text="Apply", width=8, command=self._apply_lcd_size).pack(pady=2)
+        self._build_ui()
+        self._render()
 
-        tk.Frame(left, height=2, relief="sunken", bd=1).pack(fill=tk.X, padx=8, pady=4)
+    def _build_ui(self):
+        # ---- 顶部工具栏 ----
+        toolbar = ttk.Frame(self.root)
+        toolbar.pack(fill=tk.X, padx=4, pady=2)
 
-        # 基本图形区
-        tk.Label(left, text="Shapes", font=("", 10, "bold")).pack(pady=(2, 4))
-        for comp_type, icon in SHAPE_TYPES:
-            tk.Button(left, text=f"+ {icon}", width=14,
-                      command=lambda t=comp_type: self.canvas.set_placing_mode(t)).pack(pady=1, padx=4)
+        ttk.Label(toolbar, text="ST7735 128x128 UI Designer", font=("", 12, "bold")).pack(side=tk.LEFT, padx=8)
 
-        tk.Frame(left, height=2, relief="sunken", bd=1).pack(fill=tk.X, padx=8, pady=6)
+        ttk.Button(toolbar, text="Clear All", command=self._clear_all).pack(side=tk.RIGHT, padx=2)
+        ttk.Button(toolbar, text="Load", command=self._load_project).pack(side=tk.RIGHT, padx=2)
+        ttk.Button(toolbar, text="Save", command=self._save_project).pack(side=tk.RIGHT, padx=2)
 
-        # UI 组件区
-        tk.Label(left, text="UI Components", font=("", 10, "bold")).pack(pady=(2, 4))
-        for comp_type, icon in UI_TYPES:
-            tk.Button(left, text=f"+ {icon}", width=14,
-                      command=lambda t=comp_type: self.canvas.set_placing_mode(t)).pack(pady=1, padx=4)
+        # ---- 主体：左侧组件面板 + 中间画布 + 右侧属性 ----
+        main = ttk.Frame(self.root)
+        main.pack(fill=tk.BOTH, expand=True, padx=4, pady=2)
 
-        tk.Frame(left, height=2, relief="sunken", bd=1).pack(fill=tk.X, padx=8, pady=6)
+        # 左侧：组件面板
+        left_panel = ttk.LabelFrame(main, text="Components", padding=4)
+        left_panel.pack(side=tk.LEFT, fill=tk.Y, padx=(0, 4))
 
-        # 操作按钮
-        tk.Button(left, text="Export C Code", width=14, command=self.export_c_code).pack(pady=2, padx=4)
-        tk.Button(left, text="Delete", width=14,
-                  command=lambda: self.canvas.delete_selected()).pack(pady=1, padx=4)
-        tk.Button(left, text="Clear All", width=14, command=self.clear_all).pack(pady=1, padx=4)
+        for comp_type in COMPONENT_TYPES.keys():
+            btn = tk.Button(left_panel, text=comp_type, font=("Consolas", 10),
+                            width=12, bg="#2d2d2d", fg="#d4d4d4", relief=tk.RAISED,
+                            command=lambda t=comp_type: self._add_component(t))
+            btn.pack(pady=2)
 
-        tk.Frame(left, height=2, relief="sunken", bd=1).pack(fill=tk.X, padx=8, pady=6)
+        ttk.Separator(left_panel, orient=tk.HORIZONTAL).pack(fill=tk.X, pady=8)
 
-        self.status_label = tk.Label(left, text="Select mode", fg="blue", wraplength=120)
-        self.status_label.pack(pady=2, padx=4)
+        ttk.Label(left_panel, text="Presets:", font=("", 9, "bold")).pack()
+        preset_frame = ttk.Frame(left_panel)
+        preset_frame.pack()
+        for name, color_val in PRESET_COLORS.items():
+            hex_c = f"#{rgb565_to_rgb888(color_val)[0]:02X}{rgb565_to_rgb888(color_val)[1]:02X}{rgb565_to_rgb888(color_val)[2]:02X}"
+            lbl = tk.Label(preset_frame, text=name[:3], bg=hex_c,
+                           font=("", 7), width=6, relief=tk.RIDGE)
+            lbl.pack(pady=1)
 
-        tk.Label(left, text="Objects:", font=("", 9, "bold")).pack(anchor="w", padx=4, pady=(2, 1))
-        self.comp_listbox = tk.Listbox(left, width=16, height=8)
-        self.comp_listbox.pack(fill=tk.BOTH, expand=True, padx=4, pady=2)
-        self.comp_listbox.bind("<<ListboxSelect>>", self._on_list_select)
+        ttk.Separator(left_panel, orient=tk.HORIZONTAL).pack(fill=tk.X, pady=8)
 
-        # --- 中央画布 ---
-        self.center_frame = tk.Frame(self.root)
-        self.center_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=2, pady=2)
-        self.canvas = LCDCanvas(self.center_frame, self,
-                                lcd_w=self.lcd_w_var.get(),
-                                lcd_h=self.lcd_h_var.get())
+        self.info_label = ttk.Label(left_panel, text="", wraplength=120, font=("", 8))
+        self.info_label.pack(pady=4)
 
-        # --- 右侧属性 ---
-        right = tk.Frame(self.root, width=260, relief="ridge", bd=1)
-        right.pack(side=tk.RIGHT, fill=tk.Y, padx=2, pady=2)
-        right.pack_propagate(False)
-        self.prop_panel = PropertyPanel(right, self)
+        # 中间：画布区域
+        canvas_frame = ttk.Frame(main)
+        canvas_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
 
-        # 快捷键
-        self.root.bind("<Delete>", lambda e: self.canvas.delete_selected())
-        self.root.bind("<BackSpace>", lambda e: self.canvas.delete_selected())
-        self.root.bind("<Escape>", lambda e: self._cancel_placing())
+        self.canvas = tk.Canvas(canvas_frame, bg="#1a1a1a", width=SCREEN_W * CANVAS_SCALE + 40,
+                                height=SCREEN_H * CANVAS_SCALE + 40)
+        self.canvas.pack()
 
-    def _apply_lcd_size(self):
-        w = self.lcd_w_var.get()
-        h = self.lcd_h_var.get()
-        UIComponent.LCD_W = w
-        UIComponent.LCD_H = h
-        self.canvas.canvas.destroy()
-        self.canvas.coord_label.destroy()
-        self.canvas.LCD_W = w
-        self.canvas.LCD_H = h
-        self.canvas.canvas = tk.Canvas(self.center_frame,
-                                        width=w * LCDCanvas.SCALE,
-                                        height=h * LCDCanvas.SCALE,
-                                        bg="#1a1a2e", highlightthickness=1,
-                                        highlightbackground="#444")
-        self.canvas.canvas.pack(padx=4, pady=4)
-        self.canvas.coord_label = tk.Label(self.center_frame, text="Coordinate: (-, -)", anchor="w")
-        self.canvas.coord_label.pack(fill=tk.X, padx=4)
-        self.canvas.canvas.bind("<Button-1>", self.canvas._on_click)
-        self.canvas.canvas.bind("<B1-Motion>", self.canvas._on_drag)
-        self.canvas.canvas.bind("<ButtonRelease-1>", self.canvas._on_release)
-        self.canvas.canvas.bind("<Motion>", self.canvas._on_motion)
-        self.canvas._draw_background()
-        self.canvas.redraw()
-        self.root.title(f"LCD UI Designer ({w}x{h})")
+        # 鼠标事件
+        self.canvas.bind("<Button-1>", self._on_canvas_click)
+        self.canvas.bind("<B1-Motion>", self._on_canvas_drag)
+        self.canvas.bind("<ButtonRelease-1>", self._on_canvas_release)
+        self.canvas.bind("<Button-3>", self._on_canvas_right_click)
+        self.canvas.bind("<MouseWheel>", self._on_mousewheel)
 
-    def set_status(self, text):
-        self.status_label.config(text=text)
+        self.canvas.bind("<Motion>", self._on_canvas_motion)
 
-    def show_properties(self, comp):
-        self.prop_panel.show(comp)
-        self._refresh_list()
+        # 右侧：属性面板
+        right_panel = ttk.LabelFrame(main, text="Properties", padding=4)
+        right_panel.pack(side=tk.RIGHT, fill=tk.Y, padx=(4, 0))
 
-    def refresh_properties(self):
-        self.prop_panel.refresh()
-        self._refresh_list()
+        self.prop_frame = ttk.Frame(right_panel)
+        self.prop_frame.pack(fill=tk.BOTH, expand=True)
 
-    def _refresh_list(self):
-        sel_uid = self.canvas.selected.uid if self.canvas.selected else None
-        self.comp_listbox.delete(0, tk.END)
-        sel_idx = None
-        for i, comp in enumerate(self.canvas.components):
-            self.comp_listbox.insert(tk.END, comp.display_name())
-            if comp.uid == sel_uid:
-                sel_idx = i
-        if sel_idx is not None:
-            self.comp_listbox.selection_set(sel_idx)
-            self.comp_listbox.see(sel_idx)
+        self.prop_widgets = {}
+        self._build_prop_panel()
 
-    def _on_list_select(self, event):
-        sel = self.comp_listbox.curselection()
-        if not sel:
-            return
-        idx = sel[0]
-        if idx < len(self.canvas.components):
-            comp = self.canvas.components[idx]
-            self.canvas.selected = comp
-            self.canvas.redraw()
-            self.prop_panel.show(comp)
+        # ---- 底部：代码预览 ----
+        bottom = ttk.LabelFrame(self.root, text="Generated C Code", padding=4)
+        bottom.pack(fill=tk.BOTH, expand=True, padx=4, pady=2)
 
-    def _cancel_placing(self):
-        self.canvas._placing_type = None
-        self.canvas.canvas.config(cursor="")
-        self.set_status("Select mode")
+        code_frame = ttk.Frame(bottom)
+        code_frame.pack(fill=tk.BOTH, expand=True)
 
-    def clear_all(self):
-        if not self.canvas.components:
-            return
-        if messagebox.askyesno("Clear All", "Remove all objects?"):
-            self.canvas.components.clear()
-            self.canvas.selected = None
-            self.canvas.redraw()
-            self.show_properties(None)
+        self.code_text = tk.Text(code_frame, height=10, font=("Consolas", 9),
+                                  bg="#1e1e1e", fg="#d4d4d4")
+        code_scroll = ttk.Scrollbar(code_frame, orient="vertical", command=self.code_text.yview)
+        self.code_text.config(yscrollcommand=code_scroll.set)
+        code_scroll.pack(side=tk.RIGHT, fill=tk.Y)
+        self.code_text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
 
-    # -----------------------------------------------------------------------
-    # 导出 C 代码
-    # -----------------------------------------------------------------------
-    def export_c_code(self):
-        components = self.canvas.components
-        if not components:
-            messagebox.showinfo("Export", "No objects to export.")
+        btn_row = ttk.Frame(bottom)
+        btn_row.pack(fill=tk.X, pady=2)
+
+        ttk.Button(btn_row, text="Generate Code", command=self._generate_code).pack(side=tk.LEFT, padx=2)
+        ttk.Button(btn_row, text="Copy to Clipboard", command=self._copy_code).pack(side=tk.LEFT, padx=2)
+        ttk.Button(btn_row, text="Delete Selected", command=self._delete_selected).pack(side=tk.RIGHT, padx=2)
+
+        self._update_info()
+
+    def _build_prop_panel(self):
+        for w in self.prop_frame.winfo_children():
+            w.destroy()
+        self.prop_widgets.clear()
+
+        if self.selected_comp is None:
+            ttk.Label(self.prop_frame, text="No component selected", foreground="gray").pack()
             return
 
-        lines = [
-            "/* Generated by LCD UI Designer */",
-            '#include "screen.h"',
-            '#include "screen_ui.h"',
-            "",
-        ]
+        comp = self.selected_comp
+        p = comp.properties
 
-        counters = {}
-        for comp in components:
-            p = comp.props
-            loc = p["location"]
-            t = comp.comp_type
-            c = color_name(p["color"][0])
-            counters[t] = counters.get(t, 0) + 1
-            n = counters[t]
+        def add_row(label, widget):
+            row = ttk.Frame(self.prop_frame)
+            row.pack(fill=tk.X, pady=2)
+            ttk.Label(row, text=label, width=14).pack(side=tk.LEFT)
+            widget.pack(side=tk.LEFT, fill=tk.X, expand=True)
+            return widget
 
-            if t == "button":
-                hz = "NULL" if p["hz_font"] == "NULL" else p["hz_font"]
-                hz_line = ".hz_font = NULL," if hz == "NULL" else f".hz_font = (struFont_UTF_t *)&{hz},"
-                lines.append(f"/* Button: {p['label']} */")
-                lines.append(f"struUI_Button_t ui_btn_{n} = {{")
-                lines.append(f"    .location = {{{loc[0]}, {loc[1]}}},")
-                lines.append(f"    .frame = {{{p['frame'][0]}, {p['frame'][1]}, {p['frame'][2]}}},")
-                lines.append(f"    .label = \"{p['label']}\",")
-                lines.append(f"    .ascii_font = (struFont_t *)&{p['ascii_font']},")
-                lines.append(f"    {hz_line}")
-                lines.append(f"    .color = {{{color_name(p['color'][0])}, {color_name(p['color'][1])}, {color_name(p['color'][2])}}},")
-                lines.append(f"    .state = 0x{p['state']:02X}")
-                lines.append("};")
-                lines.append(f"SCREEN_DrawButton(&ui_btn_{n});")
+        # 位置
+        add_row("Type:", ttk.Label(self.prop_frame, text=comp.type, font=("", 9, "bold")))
+        add_row("X:", ttk.Label(self.prop_frame, text=str(comp.x)))
+        add_row("Y:", ttk.Label(self.prop_frame, text=str(comp.y)))
 
-            elif t == "tooltip":
-                hz = "NULL" if p["hz_font"] == "NULL" else p["hz_font"]
-                hz_line = ".hz_font = NULL," if hz == "NULL" else f".hz_font = (struFont_UTF_t *)&{hz},"
-                lines.append(f"/* Tooltip: {p['text']} */")
-                lines.append(f"struUI_Tooltip_t ui_tip_{n} = {{")
-                lines.append(f"    .location = {{{loc[0]}, {loc[1]}}},")
-                lines.append(f"    .frame = {{{p['frame'][0]}, {p['frame'][1]}}},")
-                lines.append(f"    .text = \"{p['text']}\",")
-                lines.append(f"    .ascii_font = (struFont_t *)&{p['ascii_font']},")
-                lines.append(f"    {hz_line}")
-                lines.append(f"    .color = {{{color_name(p['color'][0])}, {color_name(p['color'][1])}}}")
-                lines.append("};")
-                lines.append(f"SCREEN_DrawTooltip(&ui_tip_{n});")
+        ttk.Separator(self.prop_frame, orient=tk.HORIZONTAL).pack(fill=tk.X, pady=6)
 
-            elif t == "progressbar":
-                lines.append(f"/* ProgressBar: {p['progress']}% */")
-                lines.append(f"struUI_ProgressBar_t ui_bar_{n} = {{")
-                lines.append(f"    .location = {{{loc[0]}, {loc[1]}}},")
-                lines.append(f"    .frame = {{{p['frame'][0]}, {p['frame'][1]}}},")
-                lines.append(f"    .color = {{{color_name(p['color'][0])}, {color_name(p['color'][1])}}},")
-                lines.append(f"    .progress = {p['progress']}")
-                lines.append("};")
-                lines.append(f"SCREEN_DrawProgressBar(&ui_bar_{n});")
+        # 根据类型添加属性控件
+        if comp.type == "Button":
+            self._add_entry_row("Label:", p["label"], "label", str)
+            self._add_spinner_row("Width:", p["frame"][0], "frame_0", int)
+            self._add_spinner_row("Height:", p["frame"][1], "frame_1", int)
+            self._add_spinner_row("Radius:", p["frame"][2], "frame_2", int)
+            self._add_color_row("Border:", p["color"][0], "color_0")
+            self._add_color_row("Fill:", p["color"][1], "color_1")
+            self._add_color_row("Text:", p["color"][2], "color_2")
+            self._add_check_row("Pressed:", p["state"] == 0xFF, "state_pressed")
 
-            elif t == "switch":
-                lines.append(f"/* Switch: {'ON' if p['value'] else 'OFF'} */")
-                lines.append(f"struUI_Switch_t ui_sw_{n} = {{")
-                lines.append(f"    .location = {{{loc[0]}, {loc[1]}}},")
-                lines.append(f"    .width = {p['width']},")
-                lines.append(f"    .height = {p['height']},")
-                lines.append(f"    .track_color = {color_name(p['track_color'])},")
-                lines.append(f"    .thumb_color = {color_name(p['thumb_color'])},")
-                lines.append(f"    .value = {'true' if p['value'] else 'false'}")
-                lines.append("};")
-                lines.append(f"SCREEN_DrawSwitch(&ui_sw_{n});")
+        elif comp.type == "Tooltip":
+            self._add_entry_row("Text:", p["text"], "text", str)
+            self._add_spinner_row("Width:", p["frame"][0], "frame_0", int)
+            self._add_spinner_row("Height:", p["frame"][1], "frame_1", int)
+            self._add_color_row("Background:", p["color"][0], "color_0")
+            self._add_color_row("Text Color:", p["color"][1], "color_1")
 
-            elif t == "slider":
-                lines.append(f"/* Slider: {p['current_value']} */")
-                lines.append(f"struUI_Slider_t ui_sl_{n} = {{")
-                lines.append(f"    .location = {{{loc[0]}, {loc[1]}}},")
-                lines.append(f"    .width = {p['width']},")
-                lines.append(f"    .height = {p['height']},")
-                lines.append(f"    .track_color = {color_name(p['track_color'])},")
-                lines.append(f"    .thumb_color = {color_name(p['thumb_color'])},")
-                lines.append(f"    .progress_color = {color_name(p['progress_color'])},")
-                lines.append(f"    .min_value = {p['min_value']},")
-                lines.append(f"    .max_value = {p['max_value']},")
-                lines.append(f"    .current_value = {p['current_value']}")
-                lines.append("};")
-                lines.append(f"SCREEN_DrawSlider(&ui_sl_{n});")
+        elif comp.type == "ProgressBar":
+            self._add_spinner_row("Width:", p["frame"][0], "frame_0", int)
+            self._add_spinner_row("Height:", p["frame"][1], "frame_1", int)
+            self._add_color_row("Border:", p["color"][0], "color_0")
+            self._add_color_row("Fill:", p["color"][1], "color_1")
+            self._add_spinner_row("Progress:", p["progress"], "progress", int)
 
-            elif t == "listitem":
-                lines.append(f"/* ListItem: {p['text']} */")
-                lines.append(f"struUI_ListItem_t ui_item_{n} = {{")
-                lines.append(f"    .location = {{{loc[0]}, {loc[1]}}},")
-                lines.append(f"    .width = {p['width']},")
-                lines.append(f"    .height = {p['height']},")
-                lines.append(f"    .text = \"{p['text']}\",")
-                lines.append(f"    .font = &{p['font']},")
-                lines.append(f"    .bg_color = {color_name(p['bg_color'])},")
-                lines.append(f"    .text_color = {color_name(p['text_color'])},")
-                lines.append(f"    .border_color = {color_name(p['border_color'])},")
-                lines.append(f"    .selected = {'true' if p['selected'] else 'false'},")
-                lines.append(f"    .show_border = {'true' if p['show_border'] else 'false'}")
-                lines.append("};")
-                lines.append(f"SCREEN_DrawListItem(&ui_item_{n});")
+        elif comp.type == "Switch":
+            self._add_spinner_row("Width:", p["width"], "width", int)
+            self._add_spinner_row("Height:", p["height"], "height", int)
+            self._add_color_row("Track:", p["track_color"], "track_color")
+            self._add_color_row("Thumb:", p["thumb_color"], "thumb_color")
+            self._add_check_row("ON:", p["value"], "value_bool")
 
-            elif t == "rect_solid":
-                w, h = p["frame"][0], p["frame"][1]
-                x0, y0 = loc[0] - w // 2, loc[1] - h // 2
-                x1, y1 = loc[0] + w // 2, loc[1] + h // 2
-                lines.append(f"SCREEN_DrawRectSolid({x0}, {x1}, {y0}, {y1}, {c}, SCREEN_Nor);")
+        elif comp.type == "Slider":
+            self._add_spinner_row("Width:", p["width"], "width", int)
+            self._add_spinner_row("Height:", p["height"], "height", int)
+            self._add_color_row("Track:", p["track_color"], "track_color")
+            self._add_color_row("Thumb:", p["thumb_color"], "thumb_color")
+            self._add_color_row("Progress:", p["progress_color"], "progress_color")
+            self._add_spinner_row("Min:", p["min_value"], "min_value", int)
+            self._add_spinner_row("Max:", p["max_value"], "max_value", int)
+            self._add_spinner_row("Value:", p["current_value"], "current_value", int)
 
-            elif t == "rect_hollow":
-                w, h = p["frame"][0], p["frame"][1]
-                x0, y0 = loc[0] - w // 2, loc[1] - h // 2
-                x1, y1 = loc[0] + w // 2, loc[1] + h // 2
-                lines.append(f"SCREEN_DrawRectHollow({x0}, {x1}, {y0}, {y1}, {c}, SCREEN_Nor);")
+        elif comp.type == "ListItem":
+            self._add_entry_row("Text:", p["text"], "text", str)
+            self._add_spinner_row("Width:", p["width"], "width", int)
+            self._add_spinner_row("Height:", p["height"], "height", int)
+            self._add_color_row("Background:", p["bg_color"], "bg_color")
+            self._add_color_row("Text:", p["text_color"], "text_color")
+            self._add_color_row("Border:", p["border_color"], "border_color")
+            self._add_check_row("Selected:", p["selected"], "selected")
+            self._add_check_row("Show Border:", p["show_border"], "show_border")
 
-            elif t == "rrect_solid":
-                w, h, r = p["frame"][0], p["frame"][1], p["frame"][2]
-                x0, y0 = loc[0] - w // 2, loc[1] - h // 2
-                x1, y1 = loc[0] + w // 2, loc[1] + h // 2
-                lines.append(f"SCREEN_DrawRoundRectSolid({x0}, {x1}, {y0}, {y1}, {r}, {c}, SCREEN_Nor);")
+    def _add_entry_row(self, label, value, key, dtype):
+        row = ttk.Frame(self.prop_frame)
+        row.pack(fill=tk.X, pady=2)
+        ttk.Label(row, text=label, width=14).pack(side=tk.LEFT)
+        var = tk.StringVar(value=str(value))
+        ent = ttk.Entry(row, textvariable=var)
+        ent.pack(side=tk.LEFT, fill=tk.X, expand=True)
+        ent.bind("<FocusOut>", lambda e: self._on_prop_change(key, dtype(var.get())))
+        ent.bind("<Return>", lambda e: self._on_prop_change(key, dtype(var.get())))
+        self.prop_widgets[key] = var
 
-            elif t == "rrect_hollow":
-                w, h, r = p["frame"][0], p["frame"][1], p["frame"][2]
-                x0, y0 = loc[0] - w // 2, loc[1] - h // 2
-                x1, y1 = loc[0] + w // 2, loc[1] + h // 2
-                lines.append(f"SCREEN_DrawRoundRectHollow({x0}, {x1}, {y0}, {y1}, {r}, {c}, SCREEN_Nor);")
+    def _add_spinner_row(self, label, value, key, dtype):
+        row = ttk.Frame(self.prop_frame)
+        row.pack(fill=tk.X, pady=2)
+        ttk.Label(row, text=label, width=14).pack(side=tk.LEFT)
+        var = tk.IntVar(value=int(value))
+        sp = ttk.Spinbox(row, from_=0, to=999, textvariable=var, width=8)
+        sp.pack(side=tk.LEFT)
+        sp.bind("<FocusOut>", lambda e: self._on_prop_change(key, dtype(var.get())))
+        sp.bind("<Return>", lambda e: self._on_prop_change(key, dtype(var.get())))
+        self.prop_widgets[key] = var
 
-            elif t == "line":
-                ex, ey = p["end"]
-                lines.append(f"SCREEN_DrawLine({loc[0]}, {ex}, {loc[1]}, {ey}, {c}, SCREEN_Nor);")
+    def _add_color_row(self, label, value, key):
+        row = ttk.Frame(self.prop_frame)
+        row.pack(fill=tk.X, pady=2)
+        ttk.Label(row, text=label, width=14).pack(side=tk.LEFT)
+        var = tk.IntVar(value=int(value))
+        hex_str = f"#{rgb565_to_rgb888(value)[0]:02X}{rgb565_to_rgb888(value)[1]:02X}{rgb565_to_rgb888(value)[2]:02X}"
+        color_lbl = tk.Label(row, text=hex_str, bg=hex_str, relief=tk.SUNKEN, font=("Consolas", 9), width=10)
+        color_lbl.pack(side=tk.LEFT, padx=2)
 
-            elif t == "circle":
-                lines.append(f"SCREEN_DrawQuarArc({loc[0]}, {loc[1]}, {p['radius']}, 0x{p['quadrant']:02X}, {c}, SCREEN_Nor);")
+        def pick():
+            color = colorchooser.askcolor(title=f"Pick {label}")
+            if color[0]:
+                rgb565 = rgb888_to_rgb565(int(color[0][0]), int(color[0][1]), int(color[0][2]))
+                var.set(rgb565)
+                new_hex = f"#{int(color[0][0]):02X}{int(color[0][1]):02X}{int(color[0][2]):02X}"
+                color_lbl.config(bg=new_hex, text=new_hex)
+                self._on_prop_change(key, rgb565)
 
-            elif t == "sector":
-                lines.append(f"SCREEN_DrawQuarSector({loc[0]}, {loc[1]}, {p['radius']}, 0x{p['quadrant']:02X}, {c}, SCREEN_Nor);")
+        ttk.Button(row, text="Pick", command=pick, width=6).pack(side=tk.LEFT)
+        self.prop_widgets[key] = var
 
-            elif t == "label":
-                lines.append(f"SCREEN_DrawString({loc[0]}, {loc[1]}, \"{p['text']}\", &{p['ascii_font']}, {c}, SCREEN_Nor);")
+    def _add_check_row(self, label, value, key):
+        row = ttk.Frame(self.prop_frame)
+        row.pack(fill=tk.X, pady=2)
+        ttk.Label(row, text=label, width=14).pack(side=tk.LEFT)
+        var = tk.BooleanVar(value=bool(value))
+        ttk.Checkbutton(row, variable=var).pack(side=tk.LEFT)
+        var.trace_add("write", lambda *_: self._on_prop_change(key, var.get()))
+        self.prop_widgets[key] = var
 
-            lines.append("")
+    def _on_prop_change(self, key, value):
+        if self.selected_comp is None:
+            return
+        p = self.selected_comp.properties
 
-        code = "\n".join(lines)
-        win = tk.Toplevel(self.root)
-        win.title("Exported C Code")
-        win.geometry("580x500")
+        if key in ("label", "text"):
+            p[key] = value
+        elif key.startswith("frame_"):
+            idx = int(key.split("_")[1])
+            p["frame"][idx] = value
+        elif key.startswith("color_"):
+            idx = int(key.split("_")[1])
+            p["color"][idx] = value
+        elif key in ("width", "height", "progress", "min_value", "max_value", "current_value"):
+            p[key] = value
+        elif key in ("track_color", "thumb_color", "progress_color", "bg_color", "text_color", "border_color"):
+            p[key] = value
+        elif key == "value_bool":
+            p["value"] = value
+        elif key == "state_pressed":
+            p["state"] = 0xFF if value else 0x00
+        elif key in ("selected", "show_border"):
+            p[key] = value
 
-        txt = tk.Text(win, wrap=tk.NONE, font=("Consolas", 10))
-        vsb = tk.Scrollbar(txt, orient="vertical", command=txt.yview)
-        hsb = tk.Scrollbar(win, orient="horizontal", command=txt.xview)
-        txt.config(yscrollcommand=vsb.set, xscrollcommand=hsb.set)
-        vsb.pack(side=tk.RIGHT, fill=tk.Y)
-        txt.pack(fill=tk.BOTH, expand=True, padx=4, pady=(4, 0))
-        hsb.pack(fill=tk.X, padx=4)
-        txt.insert("1.0", code)
+        self._render()
 
-        btn_frame = tk.Frame(win)
-        btn_frame.pack(fill=tk.X, padx=4, pady=4)
+    def _add_component(self, comp_type):
+        comp = UIComponent(comp_type, SCREEN_W // 2, SCREEN_H // 2)
+        self.components.append(comp)
+        self.selected_comp = comp
+        self._build_prop_panel()
+        self._render()
+        self._update_info()
 
-        def _copy():
-            self.root.clipboard_clear()
-            self.root.clipboard_append(code)
-            copy_btn.config(text="Copied!")
+    def _delete_selected(self):
+        if self.selected_comp:
+            self.components.remove(self.selected_comp)
+            self.selected_comp = None
+            self._build_prop_panel()
+            self._render()
+            self._update_info()
 
-        copy_btn = tk.Button(btn_frame, text="Copy to Clipboard", command=_copy)
-        copy_btn.pack(side=tk.LEFT, padx=4)
+    def _clear_all(self):
+        if messagebox.askyesno("Clear", "Delete all components?"):
+            self.components.clear()
+            self.selected_comp = None
+            self._build_prop_panel()
+            self._render()
+            self._update_info()
 
-        def _save():
-            from tkinter import filedialog
-            path = filedialog.asksaveasfilename(defaultextension=".c",
-                                                filetypes=[("C files", "*.c")])
-            if path:
-                with open(path, "w", encoding="utf-8") as f:
-                    f.write(code)
-                messagebox.showinfo("Saved", f"Saved to {path}")
+    def _render(self):
+        self.canvas.delete("all")
 
-        tk.Button(btn_frame, text="Save to File", command=_save).pack(side=tk.LEFT, padx=4)
+        # 计算画布偏移（居中）
+        cw = self.canvas.winfo_width() or (SCREEN_W * CANVAS_SCALE + 40)
+        ch = self.canvas.winfo_height() or (SCREEN_H * CANVAS_SCALE + 40)
+        ox = (cw - SCREEN_W * CANVAS_SCALE) // 2
+        oy = (ch - SCREEN_H * CANVAS_SCALE) // 2
+        self.canvas_offset_x = ox
+        self.canvas_offset_y = oy
+
+        # 屏幕背景
+        self.canvas.create_rectangle(ox, oy, ox + SCREEN_W * CANVAS_SCALE, oy + SCREEN_H * CANVAS_SCALE,
+                                      fill="#111111", outline="#444444", width=2)
+
+        # 网格线
+        for i in range(0, SCREEN_W + 1, 16):
+            x = ox + i * CANVAS_SCALE
+            self.canvas.create_line(x, oy, x, oy + SCREEN_H * CANVAS_SCALE, fill="#222222")
+        for i in range(0, SCREEN_H + 1, 16):
+            y = oy + i * CANVAS_SCALE
+            self.canvas.create_line(ox, y, ox + SCREEN_W * CANVAS_SCALE, y, fill="#222222")
+
+        # 渲染组件到帧缓冲
+        renderer = ScreenRenderer()
+        for comp in self.components:
+            draw_component(renderer, comp, selected=(comp == self.selected_comp))
+        img = renderer.to_image()
+
+        # 缩放显示
+        for y in range(SCREEN_H):
+            for x in range(SCREEN_W):
+                r, g, b = img.getpixel((x, y))
+                color = f"#{r:02X}{g:02X}{b:02X}"
+                x1 = ox + x * CANVAS_SCALE
+                y1 = oy + y * CANVAS_SCALE
+                self.canvas.create_rectangle(x1, y1, x1 + CANVAS_SCALE, y1 + CANVAS_SCALE,
+                                              fill=color, outline="")
+
+    def _get_canvas_lcd_coords(self, event):
+        x = (event.x - self.canvas_offset_x) // CANVAS_SCALE
+        y = (event.y - self.canvas_offset_y) // CANVAS_SCALE
+        return x, y
+
+    def _on_canvas_click(self, event):
+        x, y = self._get_canvas_lcd_coords(event)
+        # 查找点击的组件
+        for comp in reversed(self.components):
+            if comp.contains_point(x, y):
+                self.selected_comp = comp
+                self.dragging = True
+                self.drag_offset_x = x - comp.x
+                self.drag_offset_y = y - comp.y
+                self._build_prop_panel()
+                self._render()
+                return
+        # 点击空白区域
+        self.selected_comp = None
+        self._build_prop_panel()
+        self._render()
+
+    def _on_canvas_drag(self, event):
+        if self.dragging and self.selected_comp:
+            x, y = self._get_canvas_lcd_coords(event)
+            x = max(0, min(SCREEN_W - 1, x - self.drag_offset_x))
+            y = max(0, min(SCREEN_H - 1, y - self.drag_offset_y))
+            self.selected_comp.x = x
+            self.selected_comp.y = y
+            self._render()
+            self._build_prop_panel()
+
+    def _on_canvas_release(self, event):
+        self.dragging = False
+
+    def _on_canvas_right_click(self, event):
+        x, y = self._get_canvas_lcd_coords(event)
+        for comp in reversed(self.components):
+            if comp.contains_point(x, y):
+                if messagebox.askyesno("Delete", f"Delete {comp.type} #{comp.id}?"):
+                    self.components.remove(comp)
+                    if self.selected_comp == comp:
+                        self.selected_comp = None
+                        self._build_prop_panel()
+                    self._render()
+                return
+
+    def _on_mousewheel(self, event):
+        pass
+
+    def _on_canvas_motion(self, event):
+        x, y = self._get_canvas_lcd_coords(event)
+        self.info_label.config(text=f"Cursor: ({x}, {y})")
+
+    def _generate_code(self):
+        code = generate_c_code(self.components)
+        self.code_text.delete("1.0", tk.END)
+        self.code_text.insert("1.0", code)
+
+    def _copy_code(self):
+        code = self.code_text.get("1.0", tk.END)
+        self.root.clipboard_clear()
+        self.root.clipboard_append(code)
+        messagebox.showinfo("Copied", "Code copied to clipboard!")
+
+    def _update_info(self):
+        self.info_label.config(text=f"Components: {len(self.components)}\nSelected: {self.selected_comp.type if self.selected_comp else 'None'}")
+
+    def _save_project(self):
+        data = []
+        for comp in self.components:
+            item = {
+                "id": comp.id,
+                "type": comp.type,
+                "x": comp.x,
+                "y": comp.y,
+                "properties": comp.properties,
+            }
+            data.append(item)
+
+        json_str = json.dumps(data, indent=2, ensure_ascii=False)
+        self.code_text.delete("1.0", tk.END)
+        self.code_text.insert("1.0", json_str)
+        messagebox.showinfo("Save", "JSON data is in the code area. Copy it to a file manually.")
+
+    def _load_project(self):
+        json_str = self.code_text.get("1.0", tk.END).strip()
+        if not json_str:
+            messagebox.showwarning("Load", "Paste JSON data in the code area first.")
+            return
+        try:
+            data = json.loads(json_str)
+        except json.JSONDecodeError:
+            messagebox.showerror("Error", "Invalid JSON data.")
+            return
+
+        self.components.clear()
+        UIComponent.next_id = 1
+        for item in data:
+            comp = UIComponent(item["type"], item["x"], item["y"])
+            comp.properties = item["properties"]
+            UIComponent.next_id = max(UIComponent.next_id, item["id"] + 1)
+            self.components.append(comp)
+
+        self.selected_comp = None
+        self._build_prop_panel()
+        self._render()
+        self._update_info()
+        messagebox.showinfo("Load", f"Loaded {len(data)} components.")
 
     def run(self):
         self.root.mainloop()
 
 
-# ---------------------------------------------------------------------------
+# =============================================================================
 if __name__ == "__main__":
-    app = LCDUIDesignerApp()
+    app = LCDUIApp()
     app.run()

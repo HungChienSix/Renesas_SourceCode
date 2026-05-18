@@ -878,6 +878,20 @@ void hal_entry(void) {
 | 填充 | `SCREEN_FillScreen()` | 填满整个屏幕 |
 | 刷新 | `SCREEN_RefreshScreen()` | 分区刷新（推荐） |
 | 全刷 | `SCREEN_RefreshScreen_Force()` | 强制全量刷新 |
-| 按钮 | `SCREEN_DrawButton()` | UI 按钮 |
-| 提示框 | `SCREEN_DrawTooltip()` | UI 提示框 |
-| 进度条 | `SCREEN_DrawProgressBar()` | UI 进度条 |
+| 开关 | `SCREEN_DrawSwitch()` | UI 开关 |
+| 滑动条 | `SCREEN_DrawSlider()` | UI 滑动条 |
+| 列表项 | `SCREEN_DrawListItem()` | UI 列表项 |
+
+---
+
+## 附：底层 ST7735 函数（通常不直接调用）
+
+| 类别 | 函数 | 说明 |
+|------|------|------|
+| 像素 | `ST7735_DrawPixel()` | 底层像素绘制（不推荐直接使用） |
+| 水平线 | `ST7735_DrawHorLine()` | 底层水平线绘制 |
+| 垂直线 | `ST7735_DrawVerLine()` | 底层垂直线绘制 |
+| 读像素 | `ST7735_ReadPixel()` | 读取帧缓冲像素值 |
+| 命令 | `ST7735_WriteCmd()` | 发送 ST7735 命令 |
+| 数据 | `ST7735_WriteByte()` / `ST7735_WriteData()` | 发送数据 |
+| 地址 | `ST7735_SetAddressWindow()` | 设置 RAM 读写窗口 |

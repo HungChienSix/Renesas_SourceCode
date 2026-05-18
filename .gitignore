@@ -14,3 +14,7 @@ memory_regions.ld
 
 # IDE 生成
 .settings/IORegisterSetting.xml
+
+# Python 工具脚本
+01_SPI_Screen/tools/*.py
+tools/*.py
